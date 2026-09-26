@@ -1,6 +1,14 @@
 # 汉化层架构
 
-从 v0.4.0 起，浏览器侧汉化层不再维护一个巨大的 `src/overlay.js`。源码按职责拆分为可独立阅读和测试的模块，启动时在内存中组合成一段注入脚本；不会生成或修改 Copilot 安装目录中的前端文件。
+系统由 Windows 入口、Node 伴随进程、浏览器汉化层和独立 Edge 翻译后端组成。浏览器源码按职责拆分，启动时在内存中组合；不会生成或修改 Copilot 安装目录中的文件。
+
+## 安装与启动
+
+`install.cmd` → `install.ps1` → 自动发现 Node / Copilot、预检快捷方式、编译 `.local/CopilotZh.exe`、保存配置并准备缺失模型。`src/app-discovery.mjs` 由安装器和启动器共用：已有配置、运行进程、常见目录、注册表 / App Paths、原版快捷方式依次提供候选；候选须通过 GitHub 签名校验。失效配置可回退，显式错误路径不静默改选。
+
+快捷方式通过 GUI 入口启动无控制台 Node 伴随进程。`launcher.mjs` 与 `launcher-lifecycle.mjs` 管理锁、重复启动、等待原版退出、连接、重连和恢复；`windows.mjs` / `cdp.mjs` 核验签名、回环监听、WebView2 归属与主界面来源。只向自己启动的子进程传入调试参数，不改永久环境。
+
+`install-support.ps1` 与 `uninstall-support.ps1` 共用快捷方式归属判定，稳定安装标识支持保留 `.local/installation-id` 后的目录迁移。安装预检全部入口再写入；`uninstall.cmd` 正常停用后仅清理本安装的入口，失败时保留快捷方式，不删除项目、模型或 Copilot 数据。
 
 ## 数据流
 
@@ -66,3 +74,9 @@ classifier.mjs ── 唯一的 DOM 归属判定入口 resolve()
 `window.__copilotChinese.explain(element, field)` 返回分类路径和 context，不返回页面正文。`tools/discover-untranslated.mjs` 基于同一个 API 盘点当前可见页的未分类候选，默认只写结构元数据。只有显式 `--include-text` 才保存候选原文到 `.local`。
 
 这使“找漏翻”与“实际翻译”共用一套归属逻辑：发现工具不会靠另一份 selector 清单得出与运行时不同的结论。
+
+## 翻译后端与信任边界
+
+`machine-translator.mjs` 管理缓存、去重、预热和失败退避，`machine-policy.mjs` 校验术语与字面量；`edge-translator.mjs` / `edge-process-policy.mjs` 管理独立 Edge、配置锁和连接归属。详情见 [本地翻译](LOCAL-TRANSLATION.md)。
+
+CDP 端口即使只监听回环，也不能隔离同机其他进程；调试参数和 DOM 结构不是官方兼容承诺。不修改原版二进制、React 内部状态或业务 IPC，不将聊天和代码作为翻译候选。结构变化无法确认归属时保留英文。

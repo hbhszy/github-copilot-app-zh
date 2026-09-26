@@ -1,4 +1,11 @@
-# GitHub Copilot App 低侵入汉化方案研究
+# 设计取舍与历史研究
+
+当前采用“独立启动器 + WebView2 CDP + 限定区域 DOM 汉化”：保留原版安装与签名，只做可撤销运行时修改。代价是需要随应用结构变化验证兼容性；不会自动升级为二进制补丁、DLL Hook 或整页翻译。
+
+已实现的架构和运行方式以 [架构](docs/ARCHITECTURE.md)、[本地翻译](docs/LOCAL-TRANSLATION.md) 和 [README](README.md) 为准。以下是实施前的研究快照，其中“未实现”“未验证”及外部项目状态仅对应当时，不代表当前版本。
+
+<details>
+<summary>展开 2026-09-25 的原始研究与方案对比</summary>
 
 研究日期：2026-09-25。范围：Windows 上独立的 GitHub Copilot App 界面汉化。
 
@@ -12,7 +19,7 @@
 
 ## 本机只读核查结果
 
-- 安装路径：`D:\Program Files (x86)\GitHub Copilot`。
+- 检查对象：原版 GitHub Copilot 安装目录中的 `github.exe`。
 - `github.exe` ProductVersion / FileVersion：1.1.23；Authenticode 状态 Valid，签名者 GitHub, Inc.。
 - 运行进程存在 `webview-exe-name=github.exe`，使用 Microsoft Edge WebView2 153.0.4234.48。
 - WebView 进程已有 `--lang=zh-CN`。这只能证明浏览器层语言参数已设置，不能证明应用已经具备中文词典。
@@ -82,3 +89,5 @@ CDP 的 `Page.addScriptToEvaluateOnNewDocument` 可用于后续文档加载；�
 如果调试入口不可用、主界面无法可靠区分，或者框架频繁因 DOM 修改出错，应停止该路线。不要自动升级到修改 EXE 或 DLL Hook；它们已偏离低侵入目标。
 
 当前未做运行时 PoC，也未测量实际覆盖率、性能或跨版本稳定性。下一步最有价值的工作是验证这一窄范围 PoC，而不是提前建设完整汉化工具。
+
+</details>

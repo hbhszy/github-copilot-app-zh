@@ -12,9 +12,7 @@ Windows 上的非官方、可撤销运行时汉化。使用原版 GitHub Copilot
 2. 双击桌面或开始菜单的 **GitHub Copilot 中文**。
 3. 原版应用启动后，词典中的固定文案立即切换为中文；批准区域内的新英文说明会在后台离线翻译并缓存。
 
-重复打开中文入口不会重复注入：它会让已就绪的汉化进程唤起应用；若旧进程正在启动、断连或清理，则等待完成后接管。所有启动与唤起路径均携带汉化参数。桌面/开始菜单入口使用本项目的原生 GUI 启动器，创建无控制台的 Node 伴随进程后立即退出，不再依赖 PowerShell 的 `-WindowStyle Hidden`。源码在 `src/bootstrap.cs`，安装时编译到 `.local/CopilotZh.exe`，不修改原版 Copilot EXE。
-
-如果已有 Copilot 实例没有汉化参数，中文入口会进入 `waiting-for-app-exit`，等待你保存工作并按 Ctrl+Q 正常退出，再自动启动中文版；不会强制关闭现有任务。可用停用入口取消等待。`--status` 的 `phase: ready` 表示已检查到汉化层就绪，`active` 单独只表示伴随进程在运行。
+中文快捷方式无控制台窗口，重复打开不会重复注入。已有原版实例未带汉化参数时，入口会等待你正常退出后接续启动，不强制关闭任务；停用入口可以取消等待。
 
 开始菜单的 **停用汉化 - GitHub Copilot** 会恢复英文并停止伴随进程。若还需要关闭调试端口，请正常退出 Copilot，然后使用原版入口启动。单纯关闭翻译层不会关闭 WebView2 的调试端口。
 
@@ -22,25 +20,40 @@ Windows 上的非官方、可撤销运行时汉化。使用原版 GitHub Copilot
 
 ## 安装与卸载
 
-需要 Windows 和 **Node.js 22+**。自动翻译另需本机 Microsoft Edge（本机实测 153）。核心运行时只使用 Node 内置模块；图形入口使用 Windows 的 .NET Framework，安装脚本通过 Windows PowerShell 编译本项目源码。不需要 npm install、Python、API Key 或在线翻译服务。首次准备需联网下载微软翻译组件，之后日常翻译阻断外网。
+### 新电脑：双击一个安装入口
+
+先安装原版 **GitHub Copilot App** 和 **Node.js 22+**，将本项目解压或克隆到准备长期保留的可写目录，然后双击根目录的 **`install.cmd`**。新电脑建议使用干净的源码目录，不复制旧电脑的 `.local` 运行状态。自动翻译另需本机 Microsoft Edge（本机实测 153）。
+
+**不需要手填应用路径、运行 `start.ps1` 或单独准备翻译组件。** 安装会自动发现并校验 Copilot，保存 Node 路径，编译 GUI 入口，创建桌面/开始菜单的中文快捷方式和开始菜单停用入口，最后准备缺失的翻译组件。已有模型和翻译设置保留；同名的其他安装或工具入口不会被覆盖。
+
+完成后直接使用 **GitHub Copilot 中文** 快捷方式。安装本身不会启动、强制退出 Copilot 或停止现有任务。
+
+核心运行时只使用 Node 内置模块；图形入口使用 Windows 的 .NET Framework，安装时通过 Windows PowerShell 编译本项目源码。不需要 npm install、Python、API Key 或在线翻译服务。首次准备翻译组件需要联网，可能下载数百 MB，之后日常翻译阻断外网。Node 缺失或版本过低会给出提示；安装入口不会静默安装系统软件。
+
+缺少 Edge、网络不可用或翻译配置正在使用时，会明确提示自动翻译准备未完成，但已安装的快捷方式和人工词典仍可使用。按提示使用开始菜单的停用入口后，**再次双击同一个 `install.cmd` 即可重试**，无需换用另一份脚本。安装结果保存在 `.local/install-result.json`。
+
+### 可选命令行参数
 
 ```powershell
-.\install.ps1 -AppPath 'D:\Program Files (x86)\GitHub Copilot\github.exe' -PrepareTranslator
+.\install.ps1                       # 与双击入口相同，自动识别并准备组件
+.\install.ps1 -SkipTranslator       # 仅安装/修复入口，跳过组件准备
+.\install.ps1 -PrepareTranslator    # 强制重新检查/更新组件，需先停用汉化
+
+# 仅在自动发现失败或需选择另一份安装时使用；也可传入 EXE 所在目录
+.\install.ps1 -AppPath 'D:\Apps\GitHub Copilot\github.exe'
 ```
 
-安装脚本会记住当前 Node 路径，生成本项目的本地配置，并添加桌面/开始菜单快捷方式。它不会覆盖同名但属于其他工具的快捷方式。
+`install.cmd` 同样接受这些参数。`npm run setup:translator` 仅用于单独维护组件，不是必需步骤。快捷方式冲突时，需自行确认并重命名或移除冲突入口后重试。
 
-本机模型已准备好。其他电脑可使用 `-PrepareTranslator`，或先停用汉化再运行 `npm run setup:translator` 单独下载/更新组件；缺少模型时仍可使用词典。重装入口保留已有自动翻译设置。
+建议保持项目目录位置不变。需要移动时，先停用汉化，保留 `.local/installation-id`，移动后双击 `install.cmd` 即可按安装标识修复旧快捷方式；没有原安装标识时不会擅自接管另一份目录的入口。Node 升级或路径变化后也可用同一入口修复。
 
-保持本项目目录的位置不变；移动后重新运行安装脚本。Node 升级或路径变化后也可重新安装入口。
+### 卸载
 
-```powershell
-.\uninstall.ps1
-```
+双击根目录的 **`uninstall.cmd`**，不需要再打开 PowerShell 或单独运行另一份脚本。窗口会显示结果并等待按键，失败时保留错误提示。
 
-卸载仅停止汉化并删除属于本项目的快捷方式，保留项目文件和 Copilot 数据。确认不再需要后，可自行移除项目目录。
+卸载先正常停用汉化，再仅删除本安装的快捷方式；停用失败则不继续删除。支持重复卸载、失效 Node 路径恢复和保留安装标识后的目录迁移。不会强制退出 Copilot，项目文件、翻译模型、原版快捷方式及 Copilot 数据均保留。正常退出并从原版入口重开可关闭调试端口；确认不再需要后自行移除项目目录。命令行仍可运行 `.\uninstall.ps1`。
 
-快捷方式直接启动本项目 GUI 入口，不修改系统执行策略。受组织策略限制时，不应绕过组织限制；可以在允许的 Node 终端中运行下方命令。`start.ps1 -Console` 是保留终端输出的开发入口，日常使用不需要。
+日常快捷方式直接启动本项目 GUI 入口，不依赖 PowerShell。`install.cmd` 和 `uninstall.cmd` 使用 Windows PowerShell，仅为当前进程指定 `RemoteSigned`，不修改系统或用户的永久执行策略，也不覆盖组织组策略。下载文件的来源标记或组织策略仍可能阻止运行，请按管理员允许的流程处理，不应绕过组织限制；可以在允许的 Node 终端中运行下方命令。`start.ps1 -Console` 是保留终端输出的兼容/开发入口，安装和日常使用都不需要单独运行它。
 
 ## 命令行
 
@@ -50,13 +63,13 @@ node src/launcher.mjs --status # 查看版本、端口、签名、运行状态
 node src/launcher.mjs --stop   # 停用并还原可恢复的文字
 ```
 
-`--attach PORT` 是开发诊断入口，连接前仍会核验端口监听地址、所属 WebView2 进程及其 Copilot 父进程。普通使用不需要指定端口。
+`--status` 中 `phase: ready` 才表示汉化已就绪，`active` 只表示伴随进程运行；`waiting-for-app-exit` 表示等待原版正常退出。`--attach PORT` 仅供诊断，普通使用无需指定端口。
 
-`config.json` 中可设置 `appPath`，格式参见 `config.example.json`。启动器也会尝试从运行进程、常见安装目录及卸载注册信息发现程序。
+配置示例见 [config.example.json](config.example.json)。`appPath` 可省略，安装时自动填写；旧路径失效时会重新发现应用。
 
 `machineTranslation.enabled: false` 可关闭机器翻译、保留人工词典；`idleSeconds` 默认 180（范围 30–600），较长驻留减少频繁打开菜单时重复冷启动，代价是多占用一段时间的内存。`warmup: true` 默认在启动时并行预热本地引擎，关闭后仅遇到未缓存文案才启动引擎。修改配置后停用并重开中文入口。
 
-`--status` 的 `timings` 分开记录应用校验、端点就绪和汉化层就绪耗时；`machineTranslation` 中的 `initMs`、`warmupMs`、`engineTimings` 和 `lastTranslationMs` 记录引擎初始化/模型加载/翻译耗时。固定词典不等待引擎；已加载缓存直接返回，不排在引擎预热或其他新文案后面。新候选通过无正文的 CDP 通知触发处理，1.5 秒健康检查仅作为补偿入口，不再每批人为等待一次。
+耗时、缓存与离线引擎说明见 [本地翻译](docs/LOCAL-TRANSLATION.md)。
 
 ## 范围与限制
 
@@ -64,73 +77,25 @@ node src/launcher.mjs --stop   # 停用并还原可恢复的文字
 
 翻译先判断“是不是应用自带的界面文案”，再按“人工词典 → 本地缓存 → 离线引擎”处理。人工词典负责术语、常用短标签和译文纠正，不是自动翻译白名单；在已支持区域新增文案，不需要先添加词条。词典中将原文映射为原文可明确要求保留该文案。
 
-自动范围包括设置页固定导航，常规、会话、主题、辅助功能、实验功能中带固定 section 标记的标题、说明、说明内链接文字和操作标签，反馈窗口，以及已识别的模式/添加上下文/新建会话菜单、自动优化选项、自动化内置模板和首页内置示例卡片。通过可访问性关系关联到固定控件的提示也可自动翻译；弹窗支持 `aria-labelledby` 多个 ID 与 `aria-controls`，对话框支持引用标题命名。单个新单词在这些已确认区域同样可以自动翻译，链接地址不改动。
+对话、代码、终端、输入值、账户/项目/模型/主题名称及用户工作流正文保持原样。动态标签只翻译固定外壳；目录介绍中的路径、网址和代码字面量受到保护。新 UI 文案通常无需逐条补词典，但全新的界面结构仍需适配。详细范围见 [翻译规则](docs/TRANSLATION-POLICY.md)。
 
-为减少“每个漏翻位置单独打补丁”，当前还按**结构化界面族**识别固定 UI：键盘快捷键窗口通过标题/快捷键键帽结构确认后，整窗的页签、分组和命令文案可自动进入翻译；设置中的通用表单通过 label / help / action 与输入控件的关系确认后，提供商、模型等编辑表单新增的固定标签和说明也无需逐条加白名单；命令面板按分组语义区分固定操作与最近会话数据；会话运行位置、会话列表配置及其子菜单按 popup owner 关系自动归类。输入值、下拉当前值、项目名、会话名、提供商名、模型名仍按数据处理；`Edit <name>`、`Remove <name>`、`New session in <project>`、连接状态和计数一类动态文案只翻译固定外壳，保留其中的名称/数字。URL、JSON 示例、快捷键和技术字面量在机器翻译前遮蔽、返回后校验。人工词典主要用于术语纠正和消除首次显示闪烁，而不是覆盖率白名单。
-
-另外有一个受保护的“通用 UI 控件兜底”：不属于已知数据选择器、项目树、模型/工作区选择器或用户内容的普通按钮/标签，新出现的英文短文案可直接进入离线翻译。因此像诊断页新增的工具栏按钮，不需要先为每个按钮写单独 selector。这个兜底不会放开标题、正文、项目/会话名称等任意文本；新的页面正文结构仍需先确认归属。
-
-这些已确认按钮通过 `aria-describedby` 关联的新提示也可自动翻译；浮层已存在、仅改变打开状态或子菜单归属时同样会重新识别。账户入口的“打开用户菜单”只翻译固定操作后缀，可见账户名保持原样。
-
-“我的工作”列表支持切换视图、所有仓库和已确认空状态的标题/说明，视图菜单和提示按控件关系处理。议题标题、仓库选中值以及空状态引用的筛选文本仍作为数据保留，相关词条使用独立的 `mywork` 范围，不扩展到任意页面正文。
-
-自定义页的精选、MCP、插件、技能、扩展、画布、已安装七个 TAB 支持搜索提示、分类、目录说明、空状态和操作标签；公共精选卡片和可用目录的介绍可自动翻译，包括动态加载的插件列表行。名称、星数、市场选中值与已安装项目的本地说明单独保留。分类术语与模型菜单等其他范围隔离，不共用歧义译法。
-
-账户、提供商、模型和主题名称、自定义说明、用户工作流/技能正文、无法确认用途的弹出菜单和普通页面正文不会自动提交给模型。目录介绍中的路径、网址、文件名和行内代码片段原样保护，仅翻译周围说明；其他界面沿用保守过滤。新的界面**文案**通常无需维护；全新的界面**结构类型**仍需要增加范围识别与回归测试，不能仅凭“看起来像英文”就翻译。详细边界和维护规则见 `docs/TRANSLATION-POLICY.md`，v0.4.0 后的模块职责和扩展方式见 `docs/ARCHITECTURE.md`。
-
-为减少误伤，以下内容保留原样：对话正文、代码与差异、终端、编辑器内容、用户输入、项目和会话名称、文件标签、未知下拉选项。原生菜单、系统对话框、Canvas 内部内容与外部网页不在适配范围内。未识别的详情结构、超过限制的文案或校验失败的机器译文仍可能显示英文。
+原生菜单、系统对话框、Canvas 内部内容和外部网页不在适配范围内。主题变体/排序、快捷键筛选和模型选择器的部分说明仍有覆盖缺口；未识别或校验失败的内容保留英文。
 
 词典只改变显示文案，不替换程序内部搜索索引。因此设置和命令搜索仍主要使用英文关键词。
 
-汉化按节点增量执行，并使用微任务批处理，避免后台窗口的定时器节流导致明显延迟。候选队列上限为 128，积压下降后会补扫，不会因为首屏文案较多而永久漏掉后续内容。请求丢失后有有限重试；节点变成用户内容时，仅恢复仍属于汉化层的显示值。保护区内的流式文本与纯动画类名变化不会触发界面重扫。应用首次加载时仍可能短暂显示英文。UI 出现异常时可立即停用。即使本地翻译，也无法完全消除应用结构变化造成的兼容问题。
+首次加载或离线翻译未完成时可能短暂显示英文。UI 异常时可立即停用；测试通过不代表所有机器译文准确，也不代表其他 Copilot 版本自动兼容。
 
 ## 如何工作
 
-中文入口仅给其启动的 Copilot 子进程设置 WebView2 调试参数。连接前检查：
-
-- EXE 的 Authenticode 签名有效且签名者是 GitHub。
-- 调试端口仅监听回环地址。
-- 端口所属进程是指定 Copilot 进程的 WebView2 子进程。
-- 页面类型、标题、来源以及主界面的根节点/侧栏标记符合预期。
-
-翻译脚本只修改批准范围内的文本节点与固定提示属性，不替换整块 HTML，不调用 Copilot 内部 React 状态或业务 IPC。浏览器侧源码按 model / catalog / classifier / translator / runtime 分层，启动时由 `src/overlay-source.mjs` 在内存中组合成注入脚本，没有生成文件。扫描、诊断、异步结果和节点恢复统一经过同一个 `classifier.resolve()` 归属判定。原文记录在内存中；停止时只恢复仍等于译文的节点，避免覆盖应用后续更新。
-
-人工词典始终优先；批准范围内的未知文案按“机器缓存 → 本地 Edge”处理。可在 `locales/zh-CN.json` 中纠正译文，停用后重开生效。范围之外或翻译失败的未知内容保持英文。
-
-后台 Edge 使用 `.local/edge-translator` 独立配置，可启动预热、默认空闲 180 秒退出；停用汉化也会关闭它。仅开放回环端口并核对进程归属，不开放翻译 HTTP 接口。缓存 `.local/machine-cache.json` 上限 5000 项，按区域、原文、Edge/模型/规则版本区分，不随 Copilot 升级清空。缓存含候选界面原文，已纳入 Git 忽略。
+中文入口只为其启动的 Copilot 设置调试参数，核验 GitHub 签名、回环监听、WebView2 进程归属和主界面来源后连接。翻译仅改批准的文本节点与提示属性；停用时恢复仍由汉化层持有的译文，不覆盖宿主后续更新。模块与安全边界见 [架构](docs/ARCHITECTURE.md)。
 
 调试端口可控制应用页面，即使仅回环监听，也不能隔离同一台机器上的其他本地进程。Microsoft 不承诺调试 flags 的长期稳定性；本工具不把它们当作官方插件接口。[WebView2 官方说明](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/webview-features-flags)
 
-## 维护与验证
+## 维护文档
 
-```powershell
-npm ci
-npm test
-```
+[开发与诊断](CONTRIBUTING.md) · [Agent 约定](AGENTS.md) · [架构](docs/ARCHITECTURE.md) · [翻译规则](docs/TRANSLATION-POLICY.md) · [本地翻译](docs/LOCAL-TRANSLATION.md) · [验证记录](VERIFICATION.md) · [发布检查](docs/RELEASE-CHECKLIST.md) · [更新日志](CHANGELOG.md)
 
-jsdom 仅用于开发测试，不是运行时依赖。测试覆盖范围隔离、输入保护、动态渲染、流式内容排除、停用恢复、重复安装和未知文本回退。
-
-开发诊断工具：
-
-- `tools/smoke.mjs`：在空闲应用中切换设置页，检查异常、观察器空闲行为并保存截图。
-- `tools/verify-reload.mjs`：刷新页面验证注入；仅应在无活动任务、无未发送输入时运行。`--english` 验证停用后刷新仍为英文。
-- `tools/inspect.mjs`：通过 CDP 求值，供维护者检查 DOM，不是日常使用入口。
-- `tools/verify-responsiveness.mjs`：检查启动阶段耗时、引擎耗时和当前页面空闲状态；显式加 `--restart-companion` 时仅重启汉化伴随进程，不结束或刷新 Copilot。
-- `tools/verify-theme-menu.mjs`：打开用户菜单及主题子菜单，检查四个固定选项、保留的选中属性，并保存本地截图；不选择主题，不关闭已有对话框。
-- `tools/survey-customize.mjs` / `tools/verify-customize.mjs`：搜索为空且没有对话框时切换自定义页七个 TAB，采集结构或验证翻译、名称、输入和开关状态；不安装/启停项目，结束后恢复原 TAB。本机报告在 `.local/`；加 `--screenshots` 可尝试截图，失败会单独记录。
-- `tools/verify-policy-live.mjs`：只读检查当前页面版本、就绪状态、两秒观察器采样与运行时异常计数；不切页、不刷新、不读取聊天或输入内容，报告保存到 `.local/policy-verification.json`。
-- `tools/audit-interactions.mjs --interact`：显式运行交互盘点，切换固定设置导航、打开菜单/子菜单和悬停可见操作按钮；不选择菜单选项、输入文本或提交表单。无法关闭弹窗时停止，屏幕外控件记为跳过。默认只记录分类元数据；`--include-text` 的本机报告可能包含私人资料，勿直接分享。`--after` 单独保存复查报告。
-- `tools/audit-interactions.mjs --current-only`：只读盘点当前页面，包括已有弹窗，不导航或关闭它们。`tools/verify-message-tooltips.mjs` 则对派生聊天按钮先显示操作栏、再悬停验证提示，不点击或读取消息正文。
-- `tools/discover-untranslated.mjs`：盘点当前可见页面中被分类为 `unclassified` / `text-filter` 的候选，不导航、不点击、不刷新。默认只写结构位置、分类和计数，不记录原文；仅在明确加 `--include-text` 时写入候选文案。报告位于 `.local/untranslated-discovery.json`，分享前需人工检查。
-- `tools/verify-settings-navigation.mjs`：设置页保持打开时只读验证八个固定导航项。更新前以 `--baseline` 保存基线，更新后默认模式检查译文及选中状态、项目标签和输入值是否保持不变；项目标签与输入值仅保存哈希。成功后生成 `.local/settings-navigation-verification.json` 和仅含固定导航的截图。
-- `tools/probe-copilot-translator.mjs` / `tools/probe-edge-translator.mjs`：对照测试宿主 Translator 能力。独立 Edge 探测前先停用汉化，避免争用配置；支持 `--headless --offline --text "English text"`。详见 `docs/LOCAL-TRANSLATION.md`。
-- `tools/inventory.mjs`：停用翻译后，在设置对话框已打开时收集设置页文案，仅保存在 `.local`；可能包含本机名称和路径，不应发布原始文件。
-
-日志、状态和验证产物在 `.local/`，已被 Git 忽略。运行日志不收集聊天或代码正文。提交前不要把 `.local`、本机配置或截图里的个人资料放入版本库。
-
-验证记录见 `VERIFICATION.md`。当前实现架构见 `docs/ARCHITECTURE.md`；翻译边界见 `docs/TRANSLATION-POLICY.md`；研究依据与早期架构取舍见 `RESEARCH.md`；离线翻译方案见 `docs/LOCAL-TRANSLATION.md`。
-
-欢迎提交兼容性问题和改进。开发、测试与隐私注意事项见 `CONTRIBUTING.md`；版本变化见 `CHANGELOG.md`。
+日志、模型、缓存和诊断产物只保存在被忽略的 `.local/`。报告和截图可能含私人资料，请勿未经检查就分享。
 
 ## 许可证
 

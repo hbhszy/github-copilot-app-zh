@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { CDP, getTargets, isAppTarget } from './cdp.mjs';
-import { appProcesses, inspectExe, hashExe, validateEndpoint, powershell, notify } from './windows.mjs';
+import { appProcesses, hashExe, validateEndpoint, notify } from './windows.mjs';
+import { findApp } from './app-discovery.mjs';
 import { MachineTranslator } from './machine-translator.mjs';
 import { loadOverlaySource } from './overlay-source.mjs';
 import { randomUUID } from 'node:crypto';
@@ -46,23 +47,6 @@ async function freePort() {
   const port = server.address().port;
   await new Promise(resolve => server.close(resolve));
   return port;
-}
-async function findApp(processes) {
-  const config = existsSync(join(root, 'config.json')) ? JSON.parse((await readFile(join(root, 'config.json'), 'utf8')).replace(/^\uFEFF/, '')) : {};
-  const candidates = [config.appPath,
-    join(process.env.LOCALAPPDATA || '', 'Programs', 'GitHub Copilot', 'github.exe'),
-    join(process.env.ProgramFiles || '', 'GitHub Copilot', 'github.exe'),
-    join(process.env['ProgramFiles(x86)'] || '', 'GitHub Copilot', 'github.exe')];
-  if (!candidates.some(p => p && existsSync(p))) candidates.push(...(await processes).map(p=>p.ExecutablePath));
-  if (!candidates.some(p => p && existsSync(p))) {
-    const found = await powershell(`$roots=@('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'); Get-ItemProperty $roots -ErrorAction SilentlyContinue | Where-Object {$_.DisplayName -eq 'GitHub Copilot'} | ForEach-Object {if($_.InstallLocation){Join-Path $_.InstallLocation 'github.exe'}}`);
-    candidates.push(...found.split(/\r?\n/));
-  }
-  const path = candidates.find(p => p && existsSync(p));
-  if (!path) throw new Error('未找到 GitHub Copilot。请在 config.json 中设置 appPath。');
-  const info = await inspectExe(path,{includeHash:false});
-  if (info.signature !== 'Valid' || !/GitHub, Inc\./i.test(info.signer || '')) throw new Error('应用不是具有有效 GitHub 签名的原版程序。');
-  return info;
 }
 function pumpMachine(session) {
   if(stopping || !machine?.enabled || session.machineTask)return;
@@ -164,7 +148,7 @@ async function main() {
     else void machine.init().catch(()=>{});
   }
   const processesPromise=appProcesses();
-  const [processes,info]=await Promise.all([processesPromise,findApp(processesPromise)]);
+  const [processes,info]=await Promise.all([processesPromise,findApp({config,processes:processesPromise})]);
   runState={pid:process.pid,active:true,phase:'starting',startedAt:new Date().toISOString(),app:info,port:null,
     timings:{appValidatedMs:Math.round(performance.now()-launchStarted)}};
   await saveState(runState);
