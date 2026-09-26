@@ -10,6 +10,8 @@
 
 `install-support.ps1` 与 `uninstall-support.ps1` 共用快捷方式归属判定，稳定安装标识支持保留 `.local/installation-id` 后的目录迁移。安装预检全部入口再写入；`uninstall.cmd` 正常停用后仅清理本安装的入口，失败时保留快捷方式，不删除项目、模型或 Copilot 数据。
 
+快捷方式读写统一由 `src/shortcut.cs` 的 `IShellLinkW` / `IPersistFile` 完成，源码通过 Windows PowerShell 在内存中编译，避免系统代码页导致中文/emoji 路径失败。读取只返回属性快照，不解析或搜索移动的目标，也不保存原入口；COM 对象在每次读写后释放。[Windows 接口说明](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishelllinkw)
+
 ## 数据流
 
 ```text

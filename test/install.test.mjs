@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,7 @@ test('double-click entry uses its own directory and does not run a second manual
 });
 
 test('Windows shortcut deployment is idempotent, preflights conflicts and repairs a moved installation', { skip: process.platform !== 'win32', timeout: 60000 }, async () => {
-  const root = await mkdtemp(join(tmpdir(), 'copilot-zh-install 中文 & '));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'copilot-zh-install 中文 🚀 & ')));
   const quote = value => "'" + value.replaceAll("'", "''") + "'";
   const support = fileURLToPath(new URL('../src/install-support.ps1', import.meta.url));
   const script = `
@@ -40,17 +40,16 @@ test('Windows shortcut deployment is idempotent, preflights conflicts and repair
     $links = @(Update-CopilotShortcuts @options)
     if ($links.Count -ne 3) { throw 'Expected desktop start, menu start and menu stop shortcuts' }
     if (@(Update-CopilotShortcuts @options).Count -ne 3) { throw 'Reinstall failed' }
-    $shell = New-Object -ComObject WScript.Shell
-    try {
+    & {
       foreach ($path in $links) {
-        $link = $shell.CreateShortcut($path)
+        $link = Get-CopilotShortcut $path
         if ($link.TargetPath -ne (Join-Path $local 'CopilotZh.exe')) { throw 'Wrong shortcut target' }
         if ($link.WorkingDirectory -ne $root) { throw 'Wrong working directory' }
         if ($link.IconLocation -ne ($options.AppPath + ',0')) { throw 'Icon does not use the detected app' }
       }
-      if ($shell.CreateShortcut($links[2]).Arguments -ne '--stop') { throw 'Stop argument lost' }
+      if ((Get-CopilotShortcut $links[2]).Arguments -ne '--stop') { throw 'Stop argument lost' }
       $original = [Convert]::ToBase64String([IO.File]::ReadAllBytes($links[0]))
-      $foreign = $shell.CreateShortcut($links[2])
+      $foreign = Get-CopilotShortcut $links[2]
       $foreign.TargetPath = ${quote(process.execPath)}
       $foreign.Description = 'belongs to a different tool'
       $foreign.Save()
@@ -58,7 +57,7 @@ test('Windows shortcut deployment is idempotent, preflights conflicts and repair
       try { Update-CopilotShortcuts @options | Out-Null } catch { $rejected = $_.Exception.Message.Contains('another installation') }
       if (-not $rejected) { throw 'Foreign shortcut was not rejected' }
       if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($links[0])) -ne $original) { throw 'Preflight failure partially rewrote shortcuts' }
-      if ($shell.CreateShortcut($links[2]).TargetPath -ne ${quote(process.execPath)}) { throw 'Foreign target was overwritten' }
+      if ((Get-CopilotShortcut $links[2]).TargetPath -ne ${quote(process.execPath)}) { throw 'Foreign target was overwritten' }
       # Restore only this isolated fixture, never a real desktop shortcut.
       $foreign.TargetPath = Join-Path $local 'CopilotZh.exe'
       $foreign.Save()
@@ -70,7 +69,7 @@ test('Windows shortcut deployment is idempotent, preflights conflicts and repair
       $options.Root = $moved; $options.LocalDir = $movedLocal
       $options.InstallationId = Get-CopilotInstallationId $movedLocal
       Update-CopilotShortcuts @options | Out-Null
-      if ($shell.CreateShortcut($links[0]).TargetPath -ne (Join-Path $movedLocal 'CopilotZh.exe')) { throw 'Moved installation was not repaired' }
+      if ((Get-CopilotShortcut $links[0]).TargetPath -ne (Join-Path $movedLocal 'CopilotZh.exe')) { throw 'Moved installation was not repaired' }
       $options.Root = Join-Path $root 'different checkout'; $options.InstallationId = [guid]::NewGuid().ToString('N')
       $rejected = $false
       try { Update-CopilotShortcuts @options -CheckOnly } catch { $rejected = $true }
@@ -79,7 +78,7 @@ test('Windows shortcut deployment is idempotent, preflights conflicts and repair
       if (-not (Test-CopilotShortcutOwned $legacy $root '')) { throw 'Legacy link was not recognized' }
       $legacy.Arguments = $legacy.Arguments.Replace('start.ps1"', 'start.ps1.bak"')
       if (Test-CopilotShortcutOwned $legacy $root '') { throw 'Legacy substring falsely claimed an unrelated script' }
-    } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    }
     Write-InstallJson (Join-Path $local 'settings.json') @{ appPath = 'D:\\中文\\github.exe'; machineTranslation = @{ enabled = $false; idleSeconds = 300 }; custom = @{ keep = 'unchanged' } }
     @{ count = $links.Count; moved = $true; conflictsPreserved = $true; node = $node.version } | ConvertTo-Json -Compress
   `;
@@ -94,4 +93,53 @@ test('Windows shortcut deployment is idempotent, preflights conflicts and repair
     assert.equal(config.machineTranslation.enabled, false);
     assert.equal(config.custom.keep, 'unchanged');
   } finally { await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test('native Unicode shortcuts round-trip all fields and read legacy links without changing them', { skip: process.platform !== 'win32', timeout: 60000 }, async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'copilot-zh-shortcut 中文 🚀 & ')));
+  const legacyRoot = await mkdtemp(join(tmpdir(), 'copilot-zh-legacy-'));
+  const quote = value => "'" + value.replaceAll("'", "''") + "'";
+  const support = fileURLToPath(new URL('../src/install-support.ps1', import.meta.url));
+  const script = `
+    $ErrorActionPreference='Stop'
+    . ${quote(support)}
+    $root=${quote(root)}
+    $path=Join-Path $root 'entry.lnk'
+    $link=Get-CopilotShortcut $path
+    if (Test-Path -LiteralPath $path) { throw 'Reading an absent link created a file' }
+    $link.TargetPath=Join-Path $root 'missing app\\github.exe'
+    $link.WorkingDirectory=$root
+    $link.Arguments=${quote('--label "中文 🚀 & $value"')}
+    $link.Description=${quote('快捷方式 🚀')}
+    $link.IconLocation=(Join-Path $root 'icon, extra.dll') + ',-7'
+    $link.Save()
+    $bytes=[Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+    $read=Get-CopilotShortcut $path
+    foreach ($field in @('TargetPath','WorkingDirectory','Arguments','Description','IconLocation')) {
+      if ($read.$field -cne $link.$field) { throw ('Unicode shortcut field changed: ' + $field) }
+    }
+    if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -ne $bytes) { throw 'Reading rewrote a shortcut' }
+    $shell=New-Object -ComObject WScript.Shell
+    try {
+      # WScript cannot even save a link file below an emoji directory. Create
+      # the legacy fixture in an ASCII path, then move it before native reading.
+      $originalPath=${quote(join(legacyRoot, 'legacy.lnk'))}
+      $old=$shell.CreateShortcut($originalPath)
+      $old.TargetPath=${quote(process.execPath)}
+      $old.Arguments='--legacy'; $old.Description='existing installation'; $old.Save()
+      $oldPath=Join-Path $root 'legacy.lnk'
+      Move-Item -LiteralPath $originalPath -Destination $oldPath
+      $before=[Convert]::ToBase64String([IO.File]::ReadAllBytes($oldPath))
+      $legacy=Get-CopilotShortcut $oldPath
+      if ($legacy.TargetPath -ne ${quote(process.execPath)} -or $legacy.Arguments -ne '--legacy' -or $legacy.Description -ne 'existing installation') {
+        throw 'Existing WScript shortcut was not read correctly'
+      }
+      if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($oldPath)) -ne $before) { throw 'Reading rewrote a legacy shortcut' }
+    } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+  `;
+  try {
+    await promisify(execFile)('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { windowsHide: true, timeout: 50000, maxBuffer: 1024 * 1024 });
+  } finally {
+    for (const path of [root, legacyRoot]) await rm(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 });

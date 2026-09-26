@@ -9,6 +9,7 @@
 - 用户入口：`install.cmd` 安装/修复，桌面中文快捷方式启动，`uninstall.cmd` 卸载；不要要求用户依次执行多份脚本。
 - `src/app-discovery.mjs`：安装和启动共用的路径发现、GitHub 签名校验。
 - `src/install-support.ps1` / `src/uninstall-support.ps1`：运行时发现、安装标识、快捷方式归属与安全清理。
+- `src/shortcut.cs`：Unicode `IShellLinkW` 快捷方式读写；不要退回依赖系统代码页的 WScript 目标路径设置。
 - `src/bootstrap.cs` / `src/launcher*.mjs` / `src/windows.mjs` / `src/cdp.mjs`：无控制台入口、生命周期、Windows 检查与 CDP。
 - `src/overlay/*.mjs`：model / catalog / classifier / translator / runtime；`src/overlay-source.mjs` 在内存中组合注入脚本，无需构建产物。
 - `src/machine-*.mjs` / `src/edge-*.mjs`：候选校验、缓存和独立 Edge 后端；`locales/zh-CN.json` 保存人工词典。

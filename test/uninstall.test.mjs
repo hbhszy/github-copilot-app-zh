@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, writeFile, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,7 @@ const runPS = script => promisify(execFile)('powershell.exe', [
   '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
   Buffer.from(`$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); . ${quote(installSupport)}; . ${quote(uninstallSupport)};\n${script}`, 'utf16le').toString('base64'),
 ], { windowsHide: true, timeout: 45000, maxBuffer: 1024 * 1024 });
-const fixture = () => mkdtemp(join(tmpdir(), "copilot-zh-uninstall 中文 & '! "));
+const fixture = async () => realpath(await mkdtemp(join(tmpdir(), "copilot-zh-uninstall 中文 🚀 & '! ")));
 const clean = root => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
 test('uninstall double-click entry is local, preserves errors and does not bypass system policy', async () => {
@@ -116,10 +116,9 @@ test('uninstall removes only owned shortcuts, repeats safely, retains data and s
         Desktop=(Join-Path $root 'desktop'); Programs=(Join-Path $root 'programs') }
       $remove=@{ Root=$root; Desktop=$options.Desktop; Programs=$options.Programs }
       $links=@(Update-CopilotShortcuts @options)
-      $shell=New-Object -ComObject WScript.Shell
-      try {
+      & {
         # Same title, but a different tool with a legacy-looking substring.
-        $foreign=$shell.CreateShortcut($links[2])
+        $foreign=Get-CopilotShortcut $links[2]
         $foreign.TargetPath=Join-Path $env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'
         $foreign.Arguments='-File "' + (Join-Path $root 'start.ps1.bak') + '"'
         $foreign.Description='not this installation'; $foreign.Save()
@@ -144,7 +143,7 @@ test('uninstall removes only owned shortcuts, repeats safely, retains data and s
         Copy-Item -LiteralPath (Join-Path $local 'shortcuts.json') -Destination $movedLocal
         $remove.Root=$moved
         if (@(Remove-CopilotShortcuts @remove).Count -ne 3) { throw 'Moved installation lost shortcut ownership' }
-      } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+      }
     `);
     assert.equal(await readFile(join(root, 'config.json'), 'utf8'), 'keep-config');
     assert.equal(await readFile(join(root, '.local', 'model.bin'), 'utf8'), 'keep-model');

@@ -89,15 +89,12 @@ function Remove-CopilotShortcuts {
             $paths += $absolute
         }
     }
-    $shell = New-Object -ComObject WScript.Shell
-    try {
-        foreach ($path in @($paths | Select-Object -Unique)) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
-            $link = $shell.CreateShortcut($path)
-            if (Test-CopilotShortcutOwned $link $Root $installationId) {
-                Remove-Item -LiteralPath $path
-                Write-Output $path
-            } else { Write-Warning "Kept shortcut belonging to another installation or tool: $path" }
-        }
-    } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    foreach ($path in @($paths | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        $link = Get-CopilotShortcut $path
+        if (Test-CopilotShortcutOwned $link $Root $installationId) {
+            Remove-Item -LiteralPath $path
+            Write-Output $path
+        } else { Write-Warning "Kept shortcut belonging to another installation or tool: $path" }
+    }
 }

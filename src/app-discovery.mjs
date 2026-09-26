@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { win32 as path } from 'node:path';
-import { appProcesses, inspectExe, powershell } from './windows.mjs';
+import { fileURLToPath } from 'node:url';
+import { appProcesses, inspectExe, powershell, psQuote } from './windows.mjs';
 
 // Normalize only paths, never commands (in particular, never execute an
 // uninstall string or a shortcut's arguments). Accept an EXE or its directory.
@@ -46,20 +47,19 @@ export async function registeredAppCandidates() {
         }
       }
     }
-    $shell = $null
     try {
-      $shell = New-Object -ComObject WScript.Shell
+      . ${psQuote(fileURLToPath(new URL('./install-support.ps1', import.meta.url)))}
       foreach ($name in @('Desktop', 'CommonDesktopDirectory', 'Programs', 'CommonPrograms')) {
         $folder = [Environment]::GetFolderPath($name)
         if (-not $folder -or -not (Test-Path -LiteralPath $folder)) { continue }
         foreach ($file in @(Get-ChildItem -LiteralPath $folder -Filter '*Copilot*.lnk' -File -Recurse -ErrorAction SilentlyContinue)) {
           try {
-            $link = $shell.CreateShortcut($file.FullName)
+            $link = Get-CopilotShortcut $file.FullName
             if ($link.TargetPath) { $found += @{path=[string]$link.TargetPath; source='shortcut'} }
           } catch { }
         }
       }
-    } catch { } finally { if ($shell) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) } }
+    } catch { }
     ConvertTo-Json -InputObject @($found) -Depth 3 -Compress
   `);
   return JSON.parse(raw || '[]');

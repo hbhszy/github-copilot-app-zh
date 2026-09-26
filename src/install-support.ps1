@@ -1,4 +1,12 @@
 # Internal installer helpers. Users only need the root install.cmd entry point.
+function Get-CopilotShortcut {
+    param([string]$Path)
+    if (-not ('CopilotChinese.ShortcutFile' -as [type])) {
+        Add-Type -Path (Join-Path $PSScriptRoot 'shortcut.cs')
+    }
+    return [CopilotChinese.ShortcutFile]::new($Path)
+}
+
 function Write-InstallJson {
     param([string]$Path, $Value)
     $temporary = $Path + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
@@ -84,30 +92,27 @@ function Update-CopilotShortcuts {
         [pscustomobject]@{ path = Join-Path $Programs "$title.lnk"; arguments = '' },
         [pscustomobject]@{ path = Join-Path $Programs "$stopTitle.lnk"; arguments = '--stop' }
     )
-    $shell = New-Object -ComObject WScript.Shell
-    try {
-        # Check the entire plan before changing even the first shortcut.
-        foreach ($item in $plan) {
-            if (Test-Path -LiteralPath $item.path) {
-                $existing = $shell.CreateShortcut($item.path)
-                if (-not (Test-CopilotShortcutOwned $existing $Root $InstallationId)) {
-                    throw "Shortcut belongs to another installation: $($item.path). Rename or remove that shortcut yourself before retrying."
-                }
+    # Check the entire plan before changing even the first shortcut.
+    foreach ($item in $plan) {
+        if (Test-Path -LiteralPath $item.path) {
+            $existing = Get-CopilotShortcut $item.path
+            if (-not (Test-CopilotShortcutOwned $existing $Root $InstallationId)) {
+                throw "Shortcut belongs to another installation: $($item.path). Rename or remove that shortcut yourself before retrying."
             }
         }
-        if ($CheckOnly) { return }
-        foreach ($item in $plan) {
-            New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($item.path)) -Force | Out-Null
-            $link = $shell.CreateShortcut($item.path)
-            $link.TargetPath = Join-Path $LocalDir 'CopilotZh.exe'
-            $link.Arguments = $item.arguments
-            $link.WorkingDirectory = $Root
-            $link.IconLocation = "$AppPath,0"
-            $link.Description = "GitHub Copilot Chinese UI overlay [$InstallationId]"
-            $link.Save()
-        }
-        $created = @($plan | ForEach-Object { $_.path })
-        Write-InstallJson (Join-Path $LocalDir 'shortcuts.json') $created
-        return $created
-    } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    }
+    if ($CheckOnly) { return }
+    foreach ($item in $plan) {
+        New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($item.path)) -Force | Out-Null
+        $link = Get-CopilotShortcut $item.path
+        $link.TargetPath = Join-Path $LocalDir 'CopilotZh.exe'
+        $link.Arguments = $item.arguments
+        $link.WorkingDirectory = $Root
+        $link.IconLocation = "$AppPath,0"
+        $link.Description = "GitHub Copilot Chinese UI overlay [$InstallationId]"
+        $link.Save()
+    }
+    $created = @($plan | ForEach-Object { $_.path })
+    Write-InstallJson (Join-Path $LocalDir 'shortcuts.json') $created
+    return $created
 }
