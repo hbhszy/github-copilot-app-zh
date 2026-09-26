@@ -46,3 +46,15 @@ test('source text appears only when explicitly requested and candidate count is 
   assert.equal(result.truncated, true);
   dom.window.close();
 });
+
+test('discovery classifies each text node rather than a composite label containing model data', async () => {
+  const dom = await fixture(`<button aria-haspopup="menu" aria-label="private-model High, model and reasoning"><span>private-model · <!-- effort -->High</span></button>
+    <main><p>Still untranslated explanation</p></main>`);
+  try {
+    const { document } = dom.window;
+    assert.equal(document.querySelector('button span').textContent, 'private-model · 高');
+    const result = discoverUntranslated(document, dom.window.__copilotChinese, { includeText: true });
+    assert.ok(!result.candidates.some(item => item.source === 'High'), 'an already translated effort is not a missing translation');
+    assert.ok(result.candidates.some(item => item.source === 'Still untranslated explanation'));
+  } finally { dom.window.close(); }
+});

@@ -31,6 +31,8 @@ export function createOverlayTranslator(model, classifier, catalog) {
       if (updated) result = '已是最新版本。上次检查：' + updated[1] + '。';
       const seconds = key.match(/^(\d+) seconds?$/);
       if (seconds) result = seconds[1] + ' 秒';
+      const minutes=key.match(/^(\d+) minutes?$/);
+      if(minutes)result=minutes[1]+' 分钟';
       const announcement = key.match(/^(.+) announcements$/);
       if (announcement && model.has(settings, announcement[1])) result = settings[announcement[1]] + '播报';
     }
@@ -51,9 +53,10 @@ export function createOverlayTranslator(model, classifier, catalog) {
   }
 
   function immediate(node,name,current,resolution) {
+    if(resolution.route==='data')return null;
     const element=name==='#text'?node.parentElement:node;
     const account=name==='#text'?classifier.accountUsage(current,element):null;
-    const template=classifier.inlineTemplate(current,element);
+    const template=classifier.inlineTemplate(current,element,name);
     const translated=account ?? template ?? (resolution.dict ? translate(current,resolution.dict,name!=='#text') : null);
     return translated == null ? null : { value:translated, dict:resolution.dict };
   }

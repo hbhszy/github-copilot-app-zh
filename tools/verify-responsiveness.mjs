@@ -9,6 +9,7 @@ import {appProcesses,validateEndpoint} from '../src/windows.mjs';
 const run=promisify(execFile),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const state=()=>readFile('.local/state.json','utf8').then(JSON.parse);
 const before=await state();
+const expectedVersion=JSON.parse(await readFile('locales/zh-CN.json','utf8')).version;
 const pids=async()=> (await appProcesses()).filter(p=>p.ExecutablePath?.toLowerCase()===before.app.path.toLowerCase()).map(p=>p.ProcessId).sort();
 const originalPids=await pids();
 assert.ok(originalPids.length,'Keep the original app running for this non-disruptive check');
@@ -44,7 +45,7 @@ cdp.socket.addEventListener('message',event=>{const m=JSON.parse(event.data);if(
 try {
   await cdp.send('Runtime.enable');
   report.overlay=await cdp.evaluate('window.__copilotChinese.status()');
-  assert.equal(report.overlay.version,'0.2.5');assert.equal(report.overlay.ready,true);
+  assert.equal(report.overlay.version,expectedVersion);assert.equal(report.overlay.ready,true);
   // Allow an overlapping prewarm to finish; fixed UI is already available.
   for(let i=0;i<100;i++) {
     current=await state();

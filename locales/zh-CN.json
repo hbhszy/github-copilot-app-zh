@@ -1,5 +1,5 @@
 {
-  "version": "0.4.5",
+  "version": "0.4.6",
   "common": {
     "New": "新建",
     "No sessions yet": "暂无会话",
@@ -146,6 +146,8 @@
     "Share reply as secret gist": "将回复分享为私密 Gist",
     "Copy assistant message": "复制回复",
     "Fork session from response": "从此回复派生会话",
+    "Fork chat from response": "从此回复派生聊天",
+    "Delete session": "删除会话",
     "Copy response": "复制回复",
     "Enable remote control": "启用远程控制",
     "Rename session": "重命名会话",
@@ -315,6 +317,34 @@
       "Triage live Sentry issues and hand them off to Copilot for tracking or a fix.": "分类处理 Sentry 中的实时问题，并交给 Copilot 跟踪或修复。"
     }
   },
+  "mywork": {
+    "Change view": "切换视图",
+    "All repositories": "所有仓库",
+    "Nothing here": "暂无内容"
+  },
+  "accountSettings": {
+    "Account actions": "账户操作",
+    "GitHub.com": "GitHub.com",
+    "GitHub Enterprise Cloud": "GitHub Enterprise Cloud",
+    "Personal and enterprise accounts": "个人和企业账户",
+    "Accounts on your company’s ghe.com domain": "使用公司 ghe.com 域名的账户",
+    "GitHub.com, Personal and enterprise accounts": "GitHub.com，个人和企业账户",
+    "GitHub Enterprise Cloud, Accounts on your company’s ghe.com domain": "GitHub Enterprise Cloud，使用公司 ghe.com 域名的账户",
+    "Update authorization": "更新授权",
+    "Manage plan": "管理套餐",
+    "Manage plan. Opens in a new browser tab.": "管理套餐。在浏览器新标签页中打开。",
+    "Remove account": "移除账户",
+    "Connected accounts": "已连接账户",
+    "Projects use the default account unless changed in project settings.": "项目使用默认账户，除非在项目设置中另行指定。",
+    "Add account": "添加账户",
+    "Default": "默认",
+    "Upgrade Copilot": "升级 Copilot",
+    "Upgrade plan": "升级套餐",
+    "Upgrade your Copilot plan for higher usage limits, premium models, AI reviews and more.": "升级 Copilot 套餐，即可获得更高的使用限额、高级模型、AI 审查等功能。",
+    "Plan": "套餐",
+    "Chat messages": "聊天消息",
+    "Resets monthly. Each request costs its model’s multiplier toward your allowance.": "每月重置。每次请求按所用模型的倍率计入配额。"
+  },
   "pages": {
     "/": {
       "New": "新建",
@@ -360,6 +390,13 @@
     }
   },
   "settings": {
+    "Open audio file…": "打开音频文件…",
+    "Open audio file...": "打开音频文件…",
+    "Approve all": "全部允许",
+    "Run tools without asking.": "运行工具时无需询问。",
+    "Ask every time": "每次询问",
+    "Ask before running tools.": "运行工具前先询问。",
+    "Indefinite": "不限时长",
     "Skip to settings content": "跳转到设置内容",
     "Check for updates": "检查更新",
     "Automatically check for updates": "自动检查更新",

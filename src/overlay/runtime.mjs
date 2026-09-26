@@ -50,7 +50,7 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
       // classifiers. Only mutate labels exposed on actual controls.
       if(name==='aria-label'&&!element.matches('button,input,textarea,[contenteditable],[role="menuitem"]')&&
           !(element.matches('[role="option"]')&&classifier.fixedPopup(element))&&!classifier.workspacePanelTab(element))continue;
-      const templated=classifier.inlineTemplate(value,element);
+      const templated=classifier.inlineTemplate(value,element,name);
       const translated=templated ?? translator.translate(value,resolution.dict,true);
       if(translated!=null)translator.set(element,name,value,translated,null,resolution.dict);
       else requestMachine(element,name,value,resolution);
@@ -147,8 +147,15 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
     for(const mutation of mutations) {
       if(mutation.type==='childList') {
         const target=mutation.target;
+        const settingsHeader=target.nodeType===1&&classifier.settingsDialog(target)&&
+          (target.closest('[data-settings-header]')||target.querySelector(':scope > [data-settings-header]'));
         const panel=target.nodeType===1&&target.closest('main [role="tabpanel"]');
-        if(doc.location?.pathname==='/extensions'&&panel&&catalogPanels.has(model.originalAttr(panel,'aria-label'))&&!classifier.protectedContent(target)) {
+        const workEmpty=target.nodeType===1&&doc.location?.pathname==='/mywork'&&target.closest('[data-testid="my-work-inbox-scroll-container"] [data-size]');
+        if(settingsHeader&&!classifier.protectedContent(target)) {
+          queue(settingsHeader.parentElement);
+        } else if(workEmpty&&!classifier.protectedContent(target)) {
+          queue(workEmpty);
+        } else if(doc.location?.pathname==='/extensions'&&panel&&catalogPanels.has(model.originalAttr(panel,'aria-label'))&&!classifier.protectedContent(target)) {
           queue(target.closest('li,[class~="group/row"],section')||target);
         } else {
           for(const node of mutation.addedNodes)queue(node);
@@ -157,17 +164,18 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
       } else {
         if(mutation.type==='characterData'&&classifier.protectedContent(mutation.target.parentElement))continue;
         if(mutation.attributeName==='class') {
-          const relevant=value=>(value||'').split(/\s+/).filter(c=>['prose','markdown-body','monaco-editor','cm-editor','xterm','group/card','group/row','pointer-events-none','invisible'].includes(c)).sort().join(' ');
+          const relevant=value=>(value||'').split(/\s+/).filter(c=>['prose','markdown-body','monaco-editor','cm-editor','xterm','group/card','group/row','pointer-events-none','invisible','items-center','justify-center'].includes(c)).sort().join(' ');
           if(relevant(mutation.oldValue)===relevant(mutation.target.getAttribute('class')))continue;
         }
         const name=mutation.type==='characterData'?'#text':mutation.attributeName;
         const prior=model.records.get(mutation.target)?.get(name);
         const current=currentValue(mutation.target,name);
         if(prior?.translated===current)continue;
-        if(['id','aria-label','aria-labelledby','aria-describedby','aria-controls'].includes(mutation.attributeName))queue(doc.body);
+        if(['id','aria-label','aria-labelledby','aria-describedby','aria-controls','aria-haspopup',
+          'data-popup-open','data-base-ui-tooltip-trigger','data-settings-header'].includes(mutation.attributeName))queue(doc.body);
         else if(name==='#text') {
           const element=mutation.target.parentElement;
-          queue(element?.closest('[role="dialog"][aria-labelledby]')||element?.parentElement||mutation.target);
+          queue(element?.closest('[data-settings-header]')?.parentElement||element?.closest('[role="dialog"][aria-labelledby]')||element?.parentElement||mutation.target);
         } else queue(mutation.target);
       }
     }
@@ -291,8 +299,9 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
     life.ready=true;
     observer.observe(doc.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeOldValue:true,
       attributeFilter:[...attrs,'hidden','aria-hidden','data-open','data-closed','role','id','class','translate','contenteditable',
-        'aria-labelledby','aria-describedby','aria-controls','aria-pressed','data-selected','data-section-id','data-section-heading',
-        'data-component','data-testid','data-machine-translate','data-file-path','data-diff','data-message-id','data-message-role',
+        'aria-labelledby','aria-describedby','aria-controls','aria-haspopup','aria-pressed','data-selected','data-section-id','data-section-heading',
+        'data-popup-open','data-base-ui-tooltip-trigger','data-base-ui-focusable','data-side','tabindex','data-size',
+        'data-component','data-testid','data-settings-header','data-machine-translate','data-file-path','data-diff','data-message-id','data-message-role',
         'data-selectable','data-lexical-editor','inert','data-carousel-card','data-customize-category-header-row']});
     queue(doc.body);
   }

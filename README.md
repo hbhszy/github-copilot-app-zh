@@ -70,6 +70,10 @@ node src/launcher.mjs --stop   # 停用并还原可恢复的文字
 
 另外有一个受保护的“通用 UI 控件兜底”：不属于已知数据选择器、项目树、模型/工作区选择器或用户内容的普通按钮/标签，新出现的英文短文案可直接进入离线翻译。因此像诊断页新增的工具栏按钮，不需要先为每个按钮写单独 selector。这个兜底不会放开标题、正文、项目/会话名称等任意文本；新的页面正文结构仍需先确认归属。
 
+这些已确认按钮通过 `aria-describedby` 关联的新提示也可自动翻译；浮层已存在、仅改变打开状态或子菜单归属时同样会重新识别。账户入口的“打开用户菜单”只翻译固定操作后缀，可见账户名保持原样。
+
+“我的工作”列表支持切换视图、所有仓库和已确认空状态的标题/说明，视图菜单和提示按控件关系处理。议题标题、仓库选中值以及空状态引用的筛选文本仍作为数据保留，相关词条使用独立的 `mywork` 范围，不扩展到任意页面正文。
+
 自定义页的精选、MCP、插件、技能、扩展、画布、已安装七个 TAB 支持搜索提示、分类、目录说明、空状态和操作标签；公共精选卡片和可用目录的介绍可自动翻译，包括动态加载的插件列表行。名称、星数、市场选中值与已安装项目的本地说明单独保留。分类术语与模型菜单等其他范围隔离，不共用歧义译法。
 
 账户、提供商、模型和主题名称、自定义说明、用户工作流/技能正文、无法确认用途的弹出菜单和普通页面正文不会自动提交给模型。目录介绍中的路径、网址、文件名和行内代码片段原样保护，仅翻译周围说明；其他界面沿用保守过滤。新的界面**文案**通常无需维护；全新的界面**结构类型**仍需要增加范围识别与回归测试，不能仅凭“看起来像英文”就翻译。详细边界和维护规则见 `docs/TRANSLATION-POLICY.md`，v0.4.0 后的模块职责和扩展方式见 `docs/ARCHITECTURE.md`。
@@ -115,6 +119,8 @@ jsdom 仅用于开发测试，不是运行时依赖。测试覆盖范围隔离�
 - `tools/verify-theme-menu.mjs`：打开用户菜单及主题子菜单，检查四个固定选项、保留的选中属性，并保存本地截图；不选择主题，不关闭已有对话框。
 - `tools/survey-customize.mjs` / `tools/verify-customize.mjs`：搜索为空且没有对话框时切换自定义页七个 TAB，采集结构或验证翻译、名称、输入和开关状态；不安装/启停项目，结束后恢复原 TAB。本机报告在 `.local/`；加 `--screenshots` 可尝试截图，失败会单独记录。
 - `tools/verify-policy-live.mjs`：只读检查当前页面版本、就绪状态、两秒观察器采样与运行时异常计数；不切页、不刷新、不读取聊天或输入内容，报告保存到 `.local/policy-verification.json`。
+- `tools/audit-interactions.mjs --interact`：显式运行交互盘点，切换固定设置导航、打开菜单/子菜单和悬停可见操作按钮；不选择菜单选项、输入文本或提交表单。无法关闭弹窗时停止，屏幕外控件记为跳过。默认只记录分类元数据；`--include-text` 的本机报告可能包含私人资料，勿直接分享。`--after` 单独保存复查报告。
+- `tools/audit-interactions.mjs --current-only`：只读盘点当前页面，包括已有弹窗，不导航或关闭它们。`tools/verify-message-tooltips.mjs` 则对派生聊天按钮先显示操作栏、再悬停验证提示，不点击或读取消息正文。
 - `tools/discover-untranslated.mjs`：盘点当前可见页面中被分类为 `unclassified` / `text-filter` 的候选，不导航、不点击、不刷新。默认只写结构位置、分类和计数，不记录原文；仅在明确加 `--include-text` 时写入候选文案。报告位于 `.local/untranslated-discovery.json`，分享前需人工检查。
 - `tools/verify-settings-navigation.mjs`：设置页保持打开时只读验证八个固定导航项。更新前以 `--baseline` 保存基线，更新后默认模式检查译文及选中状态、项目标签和输入值是否保持不变；项目标签与输入值仅保存哈希。成功后生成 `.local/settings-navigation-verification.json` 和仅含固定导航的截图。
 - `tools/probe-copilot-translator.mjs` / `tools/probe-edge-translator.mjs`：对照测试宿主 Translator 能力。独立 Edge 探测前先停用汉化，避免争用配置；支持 `--headless --offline --text "English text"`。详见 `docs/LOCAL-TRANSLATION.md`。

@@ -20,6 +20,8 @@ export function createOverlayModel(dictionary, doc, options = {}) {
       settings,
       shortcuts: { ...common, ...settings },
       workflows: { ...common, ...dictionary.pages?.['/workflows'] },
+      mywork: { ...common, ...dictionary.mywork },
+      accountSettings: { ...common, ...settings, ...dictionary.accountSettings },
       catalog: { ...common, ...dictionary.pages?.['/extensions'], ...dictionary.catalog?.ui },
       catalogCategories: { ...dictionary.catalog?.categories },
       catalogDescriptions: dictionary.catalog?.descriptions || {},

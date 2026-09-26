@@ -43,11 +43,11 @@ export function discoverUntranslated(document, api, { includeText = false, limit
     const rect = element.getBoundingClientRect();
     return rect.width > 0 || rect.height > 0;
   };
-  const add = (element, name, readSource) => {
+  const add = (element, name, readSource, subject = element) => {
     if (inspected >= 12000) { truncated = true; return; }
     inspected++;
     if (!visible(element)) return;
-    const decision = api.explain(element, name);
+    const decision = api.explain(subject, name);
     if (!allowedRoutes.has(decision.route)) return;
     const source = readSource();
     if (!source || source.length > 480 || !/[A-Za-z]{2}/.test(source)) return;
@@ -89,7 +89,7 @@ export function discoverUntranslated(document, api, { includeText = false, limit
   });
   let node = root;
   while (node) {
-    if (node.nodeType === 3) add(node.parentElement, '#text', () => api.originalText ? api.originalText(node)?.trim() : node.nodeValue?.trim());
+    if (node.nodeType === 3) add(node.parentElement, '#text', () => api.originalText ? api.originalText(node)?.trim() : node.nodeValue?.trim(), node);
     if (inspected >= 12000 || rows.size >= maxCandidates) { truncated = true; break; }
     node = walker.nextNode();
   }

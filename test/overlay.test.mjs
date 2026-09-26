@@ -864,7 +864,7 @@ test('portalled theme submenus follow menuitem ownership and translate new copy,
     assert.equal(d.querySelector('[aria-checked]').getAttribute('aria-checked'),'true');
     assert.equal(d.querySelector('#name').textContent,'Settings');
     assert.equal(d.querySelector('#usage').textContent,'聊天消息已用：1%');
-    assert.equal(d.querySelector('#user').getAttribute('aria-label'),'Settings, open user menu');
+    assert.equal(d.querySelector('#user').getAttribute('aria-label'),'Settings，打开用户菜单');
     const requests=api.drainMachine(16);
     assert.deepEqual(Array.from(requests,r=>r.text).sort(),['Dimmed','Inspect background activity']);
     assert.ok(requests.some(r=>r.context==='popup:color-scheme:#text'));
@@ -899,4 +899,203 @@ test('machine work signals once per DOM batch without disclosing text or causing
     for(const req of dom.window.__copilotChinese.drainMachine())dom.window.__copilotChinese.applyMachine({...req,translation:'诊断设置'});
     await sleep(30);assert.equal(signals,1);
   }finally{dom.window.close();}
+});
+
+test('user-menu trigger translates only the accessible action shell and preserves dictionary-colliding names',async()=>{
+  const dom=await fixture(`<button id="account" aria-haspopup="menu" aria-label="Settings, open user menu"><span id="identity">Settings</span></button>
+    <button id="other" aria-label="Session: private-account, open user menu"><span>Session: private-account</span></button>
+    <button id="literal-account" aria-label="QA $&amp;, open user menu">QA $&amp;</button>
+    <div translate="no"><button id="protected-account" aria-label="Private, open user menu">Private</button></div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese,account=d.querySelector('#account');
+    assert.equal(account.getAttribute('aria-label'),'Settings，打开用户菜单');
+    assert.equal(d.querySelector('#identity').textContent,'Settings');
+    assert.equal(d.querySelector('#other').textContent,'Session: private-account');
+    assert.equal(d.querySelector('#other').getAttribute('aria-label'),'Session: private-account，打开用户菜单');
+    assert.equal(d.querySelector('#literal-account').getAttribute('aria-label'),'QA $&，打开用户菜单');
+    assert.equal(d.querySelector('#protected-account').getAttribute('aria-label'),'Private, open user menu');
+    assert.equal(api.explain(d.querySelector('#identity')).route,'data');
+    assert.equal(api.drainMachine(16).length,0);
+    account.setAttribute('aria-label','Cancel, open user menu');
+    d.querySelector('#identity').textContent='Cancel';
+    await sleep(30);
+    assert.equal(account.getAttribute('aria-label'),'Cancel，打开用户菜单');
+    assert.equal(d.querySelector('#identity').textContent,'Cancel');
+    account.setAttribute('translate','no');
+    await sleep(30);
+    assert.equal(account.getAttribute('aria-label'),'Cancel, open user menu');
+    account.removeAttribute('translate');
+    await sleep(30);
+    assert.equal(account.getAttribute('aria-label'),'Cancel，打开用户菜单');
+    api.dispose();
+    assert.equal(account.getAttribute('aria-label'),'Cancel, open user menu');
+    assert.equal(account.textContent,'Cancel');
+  } finally { dom.window.close(); }
+});
+
+test('new generic UI controls lend ownership to IDREF tooltips without admitting data-picker or chat tips',async()=>{
+  const dom=await fixture(`<button id="export" aria-label="Export diagnostics" aria-describedby="missing export-tip"></button>
+    <div role="tooltip" id="export-tip"><span id="copy">Export the current diagnostic report</span></div>
+    <button role="combobox" aria-label="Private model" aria-describedby="model-tip">private-model</button>
+    <div role="tooltip" id="model-tip">Private model description</div>
+    <div class="prose"><button aria-label="Private response action" aria-describedby="chat-tip"></button></div>
+    <div role="tooltip" id="chat-tip">Private conversation detail</div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese,batch=api.drainMachine(16);
+    const request=batch.find(r=>r.text==='Export the current diagnostic report');
+    assert.ok(request,'new app-owned control tooltips do not require dictionary entries');
+    assert.equal(request.context,'tooltip:fixed-control:#text');
+    assert.ok(!batch.some(r=>/Private|private-model/.test(r.text)));
+    assert.equal(api.applyMachine({...request,translation:'导出当前诊断报告'}),true);
+    assert.equal(d.querySelector('#copy').textContent,'导出当前诊断报告');
+    d.querySelector('#export').removeAttribute('aria-describedby');
+    await sleep(30);
+    assert.equal(d.querySelector('#copy').textContent,'Export the current diagnostic report');
+    d.querySelector('#export').setAttribute('aria-describedby','export-tip');
+    await sleep(30);
+    const late=api.drainMachine(16).find(r=>r.text==='Export the current diagnostic report');
+    assert.ok(late);
+    d.querySelector('#export').setAttribute('aria-label','Project: private-project');
+    assert.equal(api.applyMachine({...late,translation:'导出当前诊断报告'}),false);
+    api.dispose();
+    assert.equal(d.querySelector('#export').getAttribute('aria-label'),'Project: private-project');
+  } finally { dom.window.close(); }
+});
+
+test('existing roleless tooltip surfaces react to trigger open/close and reject replies after closing',async()=>{
+  const dom=await fixture(`<button id="trigger" aria-label="Add context" data-base-ui-tooltip-trigger></button>
+    <div data-base-ui-focusable data-side="bottom" tabindex="-1"><span id="tip">Attach fresh context here</span></div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese,trigger=d.querySelector('#trigger'),tip=d.querySelector('#tip');
+    assert.equal(api.drainMachine(16).length,0);
+    trigger.setAttribute('data-popup-open','');
+    await sleep(30);
+    const first=api.drainMachine(16).find(r=>r.text==='Attach fresh context here');
+    assert.ok(first,'opening an existing tooltip must trigger a portal rescan');
+    assert.equal(api.applyMachine({...first,translation:'在此附加新上下文'}),true);
+    trigger.removeAttribute('data-popup-open');
+    await sleep(30);
+    assert.equal(tip.textContent,'Attach fresh context here');
+    trigger.setAttribute('data-popup-open','');
+    await sleep(30);
+    const late=api.drainMachine(16).find(r=>r.text==='Attach fresh context here');
+    assert.ok(late);
+    trigger.removeAttribute('data-popup-open');
+    assert.equal(api.applyMachine({...late,translation:'在此附加新上下文'}),false);
+    await sleep(30);
+    const passes=api.status().passes;
+    await sleep(40);
+    assert.equal(api.status().passes,passes,'no idle rescan loop');
+  } finally { dom.window.close(); }
+});
+
+test('late tooltip markers and submenu trigger semantics rescan their portalled copy',async()=>{
+  const dom=await fixture(`<button id="trigger" aria-label="Add context" data-popup-open></button>
+    <div data-base-ui-focusable data-side="bottom" tabindex="-1"><span id="tip">Attach a fresh reference</span></div>
+    <button id="user" aria-label="Private, open user menu"></button>
+    <div role="menu" aria-labelledby="user"><div id="theme" role="menuitem">Theme</div></div>
+    <div role="menu" aria-labelledby="theme"><div id="choice" role="menuitemradio">Dimmed</div></div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese;
+    assert.equal(api.drainMachine(16).length,0);
+    d.querySelector('#trigger').setAttribute('data-base-ui-tooltip-trigger','');
+    d.querySelector('#theme').setAttribute('aria-haspopup','menu');
+    await sleep(30);
+    const batch=api.drainMachine(16);
+    assert.ok(batch.some(r=>r.text==='Attach a fresh reference'));
+    const choice=batch.find(r=>r.text==='Dimmed');
+    assert.ok(choice);
+    assert.equal(api.applyMachine({...choice,translation:'柔和'}),true);
+    d.querySelector('#theme').removeAttribute('aria-haspopup');
+    await sleep(30);
+    assert.equal(d.querySelector('#choice').textContent,'Dimmed');
+    api.dispose();
+    assert.equal(d.querySelector('#tip').textContent,'Attach a fresh reference');
+  } finally { dom.window.close(); }
+});
+
+test('my-work list chrome translates while repository choices, issue titles and quoted filters stay data',async()=>{
+  const dom=await fixture(`<main><div data-testid="my-work-list-pane"><header>
+    <button id="repos" role="combobox" aria-haspopup="dialog">All repositories</button>
+    <button id="repo-name" role="combobox" aria-haspopup="dialog">Settings</button></header>
+    <button id="view" aria-haspopup="menu" aria-label="Change view (currently list)"></button>
+    <div data-testid="my-work-inbox-scroll-container"><div data-size="medium" class="items-center justify-center"><div>
+      <div id="empty-title">Nothing here</div><div id="empty-copy">No items match "Settings $&amp;".</div>
+    </div></div><button id="issue-title" aria-label="Session: private-issue">Nothing here</button><button id="other-issue" aria-label="Settings" aria-describedby="issue-tip">Settings</button></div>
+    <input value="Settings $&amp;"></div><p id="outside-copy">Nothing here</p></main>
+    <div role="tooltip" id="issue-tip">Private issue detail</div>`,{url:'http://tauri.localhost/mywork',machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese;
+    assert.equal(d.querySelector('#repos').textContent,'所有仓库');
+    assert.equal(d.querySelector('#repo-name').textContent,'Settings');
+    assert.equal(d.querySelector('#view').getAttribute('aria-label'),'切换视图（当前：列表）');
+    assert.equal(d.querySelector('#empty-title').textContent,'暂无内容');
+    assert.equal(d.querySelector('#empty-copy').textContent,'没有符合“Settings $&”的项目。');
+    assert.equal(d.querySelector('#issue-title').textContent,'Nothing here');
+    assert.equal(d.querySelector('#issue-title').getAttribute('aria-label'),'Session: private-issue');
+    assert.equal(d.querySelector('#other-issue').textContent,'Settings');
+    assert.equal(d.querySelector('#outside-copy').textContent,'Nothing here');
+    assert.equal(d.querySelector('input').value,'Settings $&');
+    assert.equal(api.drainMachine(16).length,0);
+    api.dispose();
+    assert.equal(d.querySelector('#repos').textContent,'All repositories');
+    assert.equal(d.querySelector('#empty-copy').textContent,'No items match "Settings $&".');
+    assert.equal(d.querySelector('#view').getAttribute('aria-label'),'Change view (currently list)');
+  } finally { dom.window.close(); }
+});
+
+test('my-work empty-state ownership handles late headings, unknown copy and ownership loss',async()=>{
+  const dom=await fixture(`<main><div data-testid="my-work-list-pane"><div data-testid="my-work-inbox-scroll-container">
+    <div id="blank" data-size="medium" class="items-center justify-center"><div id="copy"><div id="help">Try a different filter</div></div></div>
+    <button><div data-size="medium" class="items-center justify-center"><div><div>Nothing here</div><div>Private issue summary</div></div></div></button>
+  </div></div></main>`,{url:'http://tauri.localhost/mywork',machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese;
+    assert.equal(api.drainMachine(16).length,0);
+    const heading=d.createElement('div');heading.textContent='Nothing here';d.querySelector('#copy').prepend(heading);
+    await sleep(30);
+    const first=api.drainMachine(16);
+    assert.deepEqual(Array.from(first,r=>r.text),['Try a different filter']);
+    assert.equal(first[0].context,'page:mywork-chrome-v1:#text');
+    assert.equal(api.applyMachine({...first[0],translation:'尝试其他筛选条件'}),true);
+    d.querySelector('#blank').removeAttribute('data-size');
+    await sleep(30);
+    assert.equal(heading.textContent,'Nothing here');
+    assert.equal(d.querySelector('#help').textContent,'Try a different filter');
+    d.querySelector('#blank').setAttribute('data-size','medium');
+    await sleep(30);
+    const changedClass=api.drainMachine(16)[0];assert.ok(changedClass);
+    d.querySelector('#blank').classList.remove('items-center');
+    assert.equal(api.applyMachine({...changedClass,translation:'尝试其他筛选条件'}),false);
+    await sleep(30);
+    assert.equal(heading.textContent,'Nothing here');
+    d.querySelector('#blank').classList.add('items-center');
+    await sleep(30);
+    const late=api.drainMachine(16)[0];assert.ok(late);
+    d.querySelector('#blank').setAttribute('translate','no');
+    assert.equal(api.applyMachine({...late,translation:'尝试其他筛选条件'}),false);
+    await sleep(30);
+    assert.equal(d.querySelector('#help').textContent,'Try a different filter');
+    api.dispose();
+    assert.equal(heading.textContent,'Nothing here');
+  } finally { dom.window.close(); }
+});
+
+test('my-work view menus and tooltips follow the fixed view control, not arbitrary same-named controls',async()=>{
+  const dom=await fixture(`<main><div data-testid="my-work-list-pane"><button id="view" aria-haspopup="menu" aria-label="Change view (currently list)" data-base-ui-tooltip-trigger data-popup-open></button></div>
+    <button id="unknown-view" aria-haspopup="menu" aria-label="Change view (currently list)"></button></main>
+    <div role="menu" aria-labelledby="view"><div role="menuitemradio" id="choice">Compact layout</div></div>
+    <div role="menu" aria-labelledby="unknown-view"><div role="menuitemradio">Private board name</div></div>
+    <div data-base-ui-focusable data-side="top" tabindex="-1"><span>Change view</span></div>`,{url:'http://tauri.localhost/mywork',machine:true,machinePolicy:createMachinePolicy()});
+  try {
+    const d=dom.window.document,api=dom.window.__copilotChinese,batch=api.drainMachine(16);
+    const choice=batch.find(r=>r.text==='Compact layout');
+    assert.ok(choice);assert.equal(choice.context,'popup:mywork-view:#text');
+    assert.ok(batch.some(r=>r.text==='Change view'&&r.context==='tooltip:fixed-control:#text'));
+    assert.ok(!batch.some(r=>r.text==='Private board name'));
+    d.querySelector('#view').setAttribute('aria-label','Project: private-project');
+    assert.equal(api.applyMachine({...choice,translation:'紧凑布局'}),false);
+    assert.equal(d.querySelector('#choice').textContent,'Compact layout');
+    assert.equal(d.querySelector('#unknown-view').getAttribute('aria-label'),'Change view (currently list)');
+  } finally { dom.window.close(); }
 });
