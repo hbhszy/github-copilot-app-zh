@@ -1,0 +1,19 @@
+{
+  "name": "github-copilot-app-zh",
+  "version": "0.4.4",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Non-invasive, local-only Chinese UI overlay for GitHub Copilot App on Windows",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/launcher.mjs",
+    "test": "node --test test/*.test.mjs",
+    "setup:translator": "node tools/setup-translator.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1"
+  }
+}

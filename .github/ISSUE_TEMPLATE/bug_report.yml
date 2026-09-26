@@ -1,0 +1,71 @@
+name: Compatibility or translation bug
+description: Report untranslated fixed UI, a compatibility regression, or an incorrect translation.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请不要上传 `config.json`、`.local/` 原始文件、聊天/代码正文、令牌或未遮盖的私人截图。
+
+  - type: input
+    id: copilot-version
+    attributes:
+      label: GitHub Copilot App version
+      placeholder: "e.g. 1.1.23"
+    validations:
+      required: true
+
+  - type: input
+    id: webview-version
+    attributes:
+      label: WebView2 version
+      placeholder: "e.g. 153.0.4234.48"
+    validations:
+      required: true
+
+  - type: input
+    id: overlay-version
+    attributes:
+      label: Overlay version
+      placeholder: "e.g. 0.4.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: UI location and source text
+      description: Describe the screen/menu and the fixed UI text that is wrong or untranslated.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed or redacted account names, repository/project names, local paths, conversation/code content, tokens, and other private data.
+          required: true
