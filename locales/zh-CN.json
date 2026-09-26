@@ -1,5 +1,5 @@
 {
-  "version": "0.4.7",
+  "version": "0.4.8",
   "common": {
     "New": "新建",
     "No sessions yet": "暂无会话",
@@ -142,6 +142,7 @@
     "PR": "拉取请求",
     "Copy user message": "复制用户消息",
     "Edit message": "编辑消息",
+    "Update message": "更新消息",
     "Bookmark to timeline": "收藏到时间线",
     "Share reply as secret gist": "将回复分享为私密 Gist",
     "Copy assistant message": "复制回复",
@@ -158,6 +159,7 @@
     "Actions": "操作",
     "Navigation": "导航",
     "No project": "无项目",
+    ", no project": "，无项目",
     "Resume remote session": "恢复远程会话",
     "Resume session by ID": "按 ID 恢复会话",
     "Check for updates": "检查更新",

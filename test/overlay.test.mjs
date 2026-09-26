@@ -207,6 +207,35 @@ test('workspace/session menus are structural popup families and keep selected re
   assert.ok(batch.every(r=>r.context.startsWith('popup:workspace-location:')));
   dom.window.close();
 });
+test('project picker popup translates fixed actions and placeholder while preserving repository identities', async()=>{
+  const dom=await fixture(`<button id="project" role="combobox" aria-label="Project: private-project" aria-controls="project-picker-dialog">private-project</button>
+    <div id="project-picker-dialog" role="dialog"><input role="combobox" placeholder="Search" aria-controls="project-picker-listbox" />
+      <div id="project-picker-listbox" role="listbox">
+        <div role="option" id="opt-chat" data-item-value="__no_project__"><span class="truncate">Chat</span><span class="sr-only">, no project</span></div>
+        <div role="option" id="opt-proj1" data-item-value="9b5c6a95-5f72-49a8-b68e-87adea492b58"><span class="truncate">private-project</span></div>
+        <div role="option" id="opt-proj2" data-item-value="13694f39-0f2a-42f5-8a79-c1b21e33ce4a"><span class="truncate">Settings</span></div>
+        <div role="option" id="opt-add" data-item-value="__project_action__github"><span class="truncate">Add GitHub repository</span></div>
+        <div role="option" id="opt-clone" data-item-value="__project_action__clone"><span class="truncate">Clone repository</span></div>
+        <div role="option" id="opt-folder" data-item-value="__project_action__folder"><span class="truncate">Open folder</span></div>
+        <div role="option" id="opt-custom" data-item-value="__project_action__custom"><span class="truncate">Attach external workspace</span></div>
+      </div>
+    </div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  const d=dom.window.document,api=dom.window.__copilotChinese;
+  assert.equal(d.querySelector('input').getAttribute('placeholder'),'搜索');
+  assert.equal(d.querySelector('#opt-chat .truncate').textContent,'聊天');
+  assert.equal(d.querySelector('#opt-chat .sr-only').textContent,'，无项目');
+  assert.equal(d.querySelector('#opt-proj1 .truncate').textContent,'private-project');
+  assert.equal(d.querySelector('#opt-proj2 .truncate').textContent,'Settings');
+  assert.equal(d.querySelector('#opt-add .truncate').textContent,'添加 GitHub 仓库');
+  assert.equal(d.querySelector('#opt-clone .truncate').textContent,'克隆仓库');
+  assert.equal(d.querySelector('#opt-folder .truncate').textContent,'打开文件夹');
+  const batch=api.drainMachine(16),texts=batch.map(r=>r.text);
+  assert.ok(texts.includes('Attach external workspace'));
+  assert.ok(!texts.includes('private-project'));
+  assert.ok(!texts.includes('Settings'));
+  assert.ok(batch.every(r=>r.context.startsWith('popup:project-picker:')));
+  dom.window.close();
+});
 test('generic chrome controls accept new app-owned button labels but not project/workspace/model data controls', async()=>{
   const dom=await fixture(`<main><button id="copy">Copy all</button><button id="export">Export diagnostics</button>
     <button id="project" aria-label="Project: private-project">private-project</button>
@@ -496,6 +525,37 @@ test('roleless message-action tooltips accept shorter fixed copy and direct port
     assert.equal(d.querySelector('#share').getAttribute('aria-label'),'将回复分享为私密 Gist');
     assert.equal(d.querySelector('#tip').textContent,'分享为私密 Gist');
   } finally { dom.window.close(); }
+});
+
+test('inline message edit composer translates mode, model, chrome buttons and mode menu inside transcript while preserving draft text', async()=>{
+  const dom=await fixture(`<div role="region" aria-label="Conversation transcript">
+    <div class="prose"><p>Existing user message text</p></div>
+    <div data-rich-composer-root="true" data-prompt-composer-v2>
+      <div role="textbox" contenteditable="true" data-lexical-editor>Draft message being edited</div>
+      <button id="mode-btn" aria-haspopup="menu" aria-label="Mode: Interactive, Ctrl + Shift + M">Interactive</button>
+      <button id="update-btn" aria-label="Update message"></button>
+    </div>
+  </div>
+  <div id="mode-menu" role="menu" aria-labelledby="mode-btn">
+    <div role="presentation">Mode</div>
+    <div role="menuitemradio"><span>Interactive</span><span>Step-by-step collaboration</span></div>
+    <div role="menuitemradio"><span>Plan</span><span>Plan first, execute when ready</span></div>
+    <div role="menuitemradio"><span>Autopilot</span><span>End-to-end execution without interruption</span></div>
+  </div>`,{machine:true,machinePolicy:createMachinePolicy()});
+  const d=dom.window.document,api=dom.window.__copilotChinese;
+  assert.equal(d.querySelector('#mode-btn').textContent, '交互');
+  assert.equal(d.querySelector('#mode-btn').getAttribute('aria-label'), '模式：交互, Ctrl + Shift + M');
+  assert.equal(d.querySelector('#update-btn').getAttribute('aria-label'), '更新消息');
+  assert.equal(d.querySelector('[role="textbox"]').textContent, 'Draft message being edited');
+  assert.equal(d.querySelector('#mode-menu [role="presentation"]').textContent, '模式');
+  const titles=[...d.querySelectorAll('#mode-menu [role="menuitemradio"]')].map(m=>m.querySelectorAll('span')[0].textContent);
+  assert.deepEqual(titles, ['交互', '规划', '自动执行']);
+  const batch=api.drainMachine(16);
+  assert.ok(batch.some(r=>r.text==='Step-by-step collaboration'));
+  assert.ok(batch.some(r=>r.text==='Plan first, execute when ready'));
+  assert.ok(batch.some(r=>r.text==='End-to-end execution without interruption'));
+  assert.ok(batch.every(r=>r.context.startsWith('popup:mode:')));
+  dom.window.close();
 });
 
 test('a single trusted open tooltip trigger can machine-translate new roleless tooltip copy',async()=>{

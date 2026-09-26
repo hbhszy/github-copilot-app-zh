@@ -191,6 +191,11 @@ export function createOverlayClassifier(model, catalog) {
     }
     return control;
   }
+  function composerChromeControl(element) {
+    const control=element?.closest?.('button');
+    if(!control||control.closest('[contenteditable="true"],[role="textbox"]'))return null;
+    return control.closest('[data-rich-composer-root="true"],[data-prompt-composer-v2],[data-rich-composer-surface="true"]')?control:null;
+  }
   function composerPlaceholderTemplate(text,element,name='#text') {
     if(!composerControl(element))return null;
     if(name==='#text'&&!element.closest('[data-rich-composer-placeholder="true"]'))return null;
@@ -249,6 +254,34 @@ export function createOverlayClassifier(model, catalog) {
     if(!item)return 'ui';
     const source=name==='#text'?model.originalContent(element).trim():(model.originalAttr(element,name)||'').trim();
     return [', issue','issue','，议题','议题'].includes(source)?'ui':'data';
+  }
+  function projectPickerPopup(element) {
+    const dialog=element?.closest?.('[role="dialog"]');
+    if(!dialog||settingsDialog(element)||shortcutDialog(element)||commandPaletteDialog(element)||sessionInfoDialog(element))return null;
+    const owners=popupOwners(dialog);
+    if(owners.some(trigger=>/^Project: /.test(model.originalAttr(trigger,'aria-label')||'')))return dialog;
+    if(dialog.querySelector('[data-item-value="__no_project__"],[data-item-value^="__project_action__"]'))return dialog;
+    return null;
+  }
+  function projectPickerField(element,name) {
+    const popup=projectPickerPopup(element);
+    if(!popup)return null;
+    if(element.matches('input')&&name!=='#text')return 'ui';
+    const option=element.closest('[role="option"]');
+    if(!option)return 'ui';
+    const itemValue=option.getAttribute('data-item-value')||'';
+    if(itemValue.startsWith('__'))return 'ui';
+    const source=(name==='#text'?model.originalContent(element):(model.originalAttr(element,name)||'')).trim();
+    if(['Chat',common.Chat,'Add GitHub repository',common['Add GitHub repository'],'Clone repository',common['Clone repository'],'Open folder',common['Open folder'],', no project','，无项目'].includes(source)) {
+      return !itemValue||itemValue.startsWith('__')?'ui':'data';
+    }
+    return 'data';
+  }
+  function projectPickerTemplate(text,element) {
+    if(!projectPickerPopup(element))return null;
+    const key=(text||'').trim();
+    if(key===', no project')return text.replace(', no project','，无项目');
+    return null;
   }
   function browserPanelField(element,name) {
     const panel=element?.closest?.('[role="tabpanel"]');
@@ -471,7 +504,9 @@ export function createOverlayClassifier(model, catalog) {
   }
 
   function protectedContent(element, attribute = false) {
-    if (!element || element.closest(hardProtectedSelector)) return true;
+    if (!element) return true;
+    if (composerChromeControl(element)) return false;
+    if (element.closest(hardProtectedSelector)) return true;
     if (attribute && element.matches('input,textarea,[contenteditable]')) return Boolean(element.parentElement?.closest(protectedSelector));
     return Boolean(element.closest(protectedSelector));
   }
@@ -618,6 +653,7 @@ export function createOverlayClassifier(model, catalog) {
 
   function excluded(element, attribute) {
     if(messageChromeControl(element))return false;
+    if(composerChromeControl(element))return false;
     if (protectedContent(element, attribute)) return true;
     const dialog = settingsDialog(element);
     const popup = fixedPopup(element);
@@ -644,7 +680,7 @@ export function createOverlayClassifier(model, catalog) {
     if (tree && !emptyTree && !tree.querySelector('#sidebar-group-quick-chats') && !element.closest('#sidebar-group-quick-chats')) return true;
     const emptyLabel = emptyLabels.includes(element.textContent.trim()) && !element.closest('button');
     if (!emptyLabel && element.closest('[id^="workspace-preview-trigger-"], [id^="sidebar-group-"]:not(#sidebar-group-quick-chats)')) return true;
-    if (element.closest('[role="tab"], [role="option"]') && !dialog && !popup && !shortcutDialog(element) && !commandPaletteDialog(element) && !workspacePanelTab(element)) {
+    if (element.closest('[role="tab"], [role="option"]') && !dialog && !popup && !projectPickerPopup(element) && !shortcutDialog(element) && !commandPaletteDialog(element) && !workspacePanelTab(element)) {
       if (!(doc.location?.pathname === '/extensions' && element.closest('main [role="tablist"]'))) return true;
     }
     const nav = element.closest('nav');
@@ -654,6 +690,8 @@ export function createOverlayClassifier(model, catalog) {
 
   function dictionaryFor(element, attribute, name = attribute ? 'aria-label' : '#text', prevalidated = false) {
     if (!prevalidated && excluded(element, attribute)) return null;
+    const projectField=projectPickerField(element,name);
+    if(projectField)return projectField==='ui'?common:null;
     const settingPopup=settingsPopupField(element,name);
     if(settingPopup)return settingPopup.field==='ui'?(settingPopup.kind.startsWith('settings-account-')?accountSettings:settings):null;
     const accountField=settingsAccountField(element,name);
@@ -673,6 +711,7 @@ export function createOverlayClassifier(model, catalog) {
     const runField=runOptionsField(element,name);
     if(runField)return runField==='ui'?common:null;
     if(messageChromeControl(element))return common;
+    if(composerChromeControl(element))return common;
     const palette=commandPaletteField(element,name);
     if(palette)return palette==='ui'?common:null;
     const catalogField=catalog.field(element,name);
@@ -715,6 +754,8 @@ export function createOverlayClassifier(model, catalog) {
   function machineContext(element,name,prevalidated = false) {
     if(!model.machine.enabled || (!prevalidated && excluded(element,name!=='#text')))return null;
     if(sessionOptionsTrigger(element))return null;
+    const projectField=projectPickerField(element,name);
+    if(projectField)return projectField==='ui'?`popup:project-picker:${name}`:null;
     const settingPopup=settingsPopupField(element,name);
     if(settingPopup)return settingPopup.field==='ui'?`popup:${settingPopup.kind}:${name}`:null;
     const accountField=settingsAccountField(element,name);
@@ -733,6 +774,7 @@ export function createOverlayClassifier(model, catalog) {
     const runField=runOptionsField(element,name);
     if(runField)return runField==='ui'?`popup:run-options:${name}`:null;
     if(messageChromeControl(element))return `control:message-chrome-v1:${name}`;
+    if(composerChromeControl(element))return `control:composer-chrome-v1:${name}`;
     if(accountMenuItem(element))return null;
     const palette=commandPaletteField(element,name);
     if(palette)return palette==='ui'?`dialog:command-palette-v1:${name}`:null;
@@ -768,6 +810,8 @@ export function createOverlayClassifier(model, catalog) {
     if(!element||excluded(element,attribute))return {route:'protected',dict:null,context:null};
     const sessionTrigger=sessionOptionsTrigger(element);
     if(sessionTrigger&&(name!=='aria-label'||element!==sessionTrigger))return {route:'data',dict:null,context:null};
+    const projectField=projectPickerField(element,name);
+    if(projectField==='data')return {route:'data',dict:null,context:null};
     const soundControl=element.closest('button');
     if(soundControl&&settingsPopupKind(soundControl)==='settings-sound'&&(name==='#text'||element!==soundControl))return {route:'data',dict:null,context:null};
     if(settingsPopupField(element,name)?.field==='data')return {route:'data',dict:null,context:null};
@@ -791,14 +835,14 @@ export function createOverlayClassifier(model, catalog) {
   }
 
   function inlineTemplate(text,element,name='#text') {
-    return composerPlaceholderTemplate(text,element,name) ?? myWorkTemplate(text,element,name) ?? sidebarInlineTemplate(text,element) ?? chromeInlineTemplate(text,element,name) ?? settingsInlineTemplate(text,element) ?? sessionInfoTemplate(text,element) ?? messageInlineTemplate(text,element);
+    return composerPlaceholderTemplate(text,element,name) ?? myWorkTemplate(text,element,name) ?? sidebarInlineTemplate(text,element) ?? chromeInlineTemplate(text,element,name) ?? settingsInlineTemplate(text,element) ?? sessionInfoTemplate(text,element) ?? messageInlineTemplate(text,element) ?? projectPickerTemplate(text,element);
   }
   return {
     resolve, excluded, protectedContent, dictionaryFor, machineContext, inlineTemplate,
     accountUsage, accountMenuItem, fixedPopup, fixedTooltip, settingsDialog,
     sidebarInlineTemplate, settingsInlineTemplate, sessionInfoDialog, sessionInfoField,
     chromeInlineTemplate, composerPlaceholderTemplate, composerField, composerControl,
-    messageChromeControl, messageInlineTemplate, runOptionsField, workspacePanelTab, workspaceShellField,
-    workspaceAddTabField, browserPanelField, commandPaletteField
+    messageChromeControl, messageInlineTemplate, composerChromeControl, runOptionsField, workspacePanelTab, workspaceShellField,
+    workspaceAddTabField, browserPanelField, commandPaletteField, projectPickerPopup, projectPickerField
   };
 }

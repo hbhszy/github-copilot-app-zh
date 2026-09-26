@@ -126,6 +126,16 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
     // placeholder is safe and needs an explicit pass because the walker prunes
     // the protected editor subtree.
     for(const composer of doc.querySelectorAll('[role="textbox"][contenteditable="true"][data-lexical-editor][aria-placeholder]'))element(composer);
+    for(const composer of doc.querySelectorAll('[data-rich-composer-root="true"],[data-prompt-composer-v2]')) {
+      for(const control of composer.querySelectorAll('button')) {
+        if(!classifier.composerChromeControl(control))continue;
+        element(control);
+        for(const child of control.childNodes) {
+          if(child.nodeType===3)textNode(child);
+          else if(child.nodeType===1)scan(child);
+        }
+      }
+    }
     for(const node of model.records.keys())if(!node.isConnected)model.records.delete(node);
     model.stats.passes++;
     model.stats.duration+=view.performance.now()-started;
