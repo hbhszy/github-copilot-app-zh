@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.5 - 2026-09-26
+
+- 修复项目侧栏操作的短悬浮提示：`New session` 与 `Create from...` 现在会跟随固定操作翻译。
+- 补齐 `Create project from pull requests, branches, or issues in <repo>` 的动态 aria-label，只翻译固定外壳并保留仓库名。
+- 对这组 tooltip 使用明确的 `data-testid` 归属，不依赖 Base UI 是否在触发器上暴露 `data-popup-open`。
+- 新增回归测试，确保仓库身份与未知项目说明不会被翻译。
+
 ## 0.4.4 - 2026-09-26
 
 首个公开发布版本。

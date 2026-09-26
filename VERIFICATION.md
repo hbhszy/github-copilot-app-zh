@@ -269,3 +269,7 @@ UTC `2026-09-25T17:44:10.356Z` 的已安装入口检查返回 `noConsole: true`�
 补齐新版 Base UI 的 roleless tooltip 结构，允许与可信固定控件建立归属关系；消息操作提示即使可见文案与 aria-label 不完全相同，也能翻译固定 UI 而不进入消息正文。模型菜单新增 Effort / Extra High 等推理强度结构识别，动态模型名继续按数据保护。
 
 聊天输入框属于受保护的 Lexical / `.prose` 编辑区域。v0.4.4 仅显式放行编辑器自身 `aria-placeholder` 的固定外壳，并支持 `/ commands`、`@ files`、`& sessions`、`# issues` 的不同组合与顺序；草稿正文仍不扫描、不翻译。公开发布前回归测试共 **86/86 通过**，并新增 Windows GitHub Actions CI、MIT License、发布检查清单与公开仓库匿名化检查。
+
+## v0.4.5 项目侧栏操作提示（2026-09-26）
+
+实际应用中确认项目行的 `repository-group-new-workspace-action` 与 `repository-group-create-from-action` 使用 Base UI roleless tooltip；短提示 `New session` / `Create from...` 没有稳定 IDREF，且触发器不保证设置 `data-popup-open`。v0.4.5 改为仅在对应已知 `data-testid` 控件存在时接纳这两个精确固定提示，并补齐“从仓库的拉取请求、分支或议题创建项目”的动态 aria-label 模板。仓库名、会话名和未知项目说明继续按数据保护。

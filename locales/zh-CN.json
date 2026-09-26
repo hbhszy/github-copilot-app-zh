@@ -1,5 +1,5 @@
 {
-  "version": "0.4.4",
+  "version": "0.4.5",
   "common": {
     "New": "新建",
     "No sessions yet": "暂无会话",
@@ -32,6 +32,8 @@
     "Configure sessions": "配置会话列表",
     "New project or session": "新建项目或会话",
     "New session": "新建会话",
+    "Create from...": "从…创建项目",
+    "Create from…": "从…创建项目",
     "New chat": "新建聊天",
     "Add project": "添加项目",
     "Open project": "打开项目",

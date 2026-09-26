@@ -201,6 +201,10 @@ export function createOverlayClassifier(model, catalog) {
       const match=key.match(/^New session in (.+)$/);
       if(match)return text.replace(key,'在 '+match[1]+' 中新建会话');
     }
+    if(element?.matches?.('[data-testid="repository-group-create-from-action"]')) {
+      const match=key.match(/^Create project from pull requests, branches, or issues in (.+)$/);
+      if(match)return text.replace(key,`从 ${match[1]} 的拉取请求、分支或议题创建项目`);
+    }
     const sessionInfo=key.match(/^(.+), session information$/);
     if(sessionInfo)return text.replace(key,sessionInfo[1]+'，会话信息');
     const sessionTitle=key.match(/^Session: (.+)$/);
@@ -395,7 +399,13 @@ export function createOverlayClassifier(model, catalog) {
     const tip = element.closest('[role="tooltip"],[data-base-ui-focusable][data-side][tabindex="-1"]');
     if (!tip) return false;
     const tipText=model.originalContent(tip).trim();
-    if (['New session',common['New session']].includes(tipText) && [...doc.querySelectorAll('[data-testid="repository-group-new-workspace-action"][data-popup-open]')].some(trigger=>!excluded(trigger,true))) return true;
+    // Repository-row actions intentionally live inside protected project-tree
+    // data. Base UI portals their short tooltips without an IDREF relation and
+    // does not consistently expose data-popup-open on the trigger, so admit
+    // only these exact app-owned tooltip strings when the corresponding known
+    // action control exists. Repository/session identities remain protected.
+    if (['New session',common['New session']].includes(tipText) && doc.querySelector('[data-testid="repository-group-new-workspace-action"]')) return true;
+    if (['Create from...','Create from…',common['Create from...'],common['Create from…']].includes(tipText) && doc.querySelector('[data-testid="repository-group-create-from-action"]')) return true;
     if (tip.id && [...doc.querySelectorAll('button[aria-describedby]')].some(trigger =>
       trigger.getAttribute('aria-describedby').split(/\s+/).includes(tip.id) && !excluded(trigger, true) &&
       (model.has(common, model.originalAttr(trigger, 'aria-label')) || fixedSettingsContext(trigger, 'aria-label')))) return true;

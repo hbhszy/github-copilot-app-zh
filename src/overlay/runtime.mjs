@@ -110,7 +110,7 @@ export function createOverlayRuntime(model, catalog, classifier, translator) {
     for(const leaf of doc.querySelectorAll('[data-testid^="repository-group-children-"] > [role="treeitem"][aria-disabled="true"]')) {
       if(leaf.childNodes.length===1&&leaf.firstChild.nodeType===3&&emptyLabels.includes(leaf.textContent.trim()))textNode(leaf.firstChild);
     }
-    for(const action of doc.querySelectorAll('[data-testid="repository-group-new-workspace-action"][aria-label]'))element(action);
+    for(const action of doc.querySelectorAll('[data-testid="repository-group-new-workspace-action"][aria-label],[data-testid="repository-group-create-from-action"][aria-label]'))element(action);
     // Message bodies are protected as user/model content. Process only the
     // explicitly identified chrome controls that live inside those subtrees.
     for(const control of doc.querySelectorAll('[data-testid="assistant-reasoning-toggle"],button[data-base-ui-tooltip-trigger][aria-label]')) {

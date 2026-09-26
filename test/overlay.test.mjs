@@ -219,10 +219,22 @@ test('generic chrome controls accept new app-owned button labels but not project
   assert.ok(batch.every(r=>r.context.startsWith('control:chrome-v1:')));
   dom.window.close();
 });
-test('repository new-session action translates only its fixed wrapper',async()=>{
-  const dom=await fixture(`<aside><li role="treeitem"><button data-testid="repository-group-new-workspace-action" aria-label="New session in private-repo"></button></li></aside>`);
-  assert.equal(dom.window.document.querySelector('button').getAttribute('aria-label'),'在 private-repo 中新建会话');
-  dom.window.close();
+test('repository row actions and their roleless tooltips translate fixed chrome while preserving repository identity',async()=>{
+  const dom=await fixture(`<aside><li role="treeitem"><span>private-repo</span>
+    <button id="create" data-testid="repository-group-create-from-action" data-base-ui-tooltip-trigger aria-label="Create project from pull requests, branches, or issues in private-repo"></button>
+    <button id="session" data-testid="repository-group-new-workspace-action" data-base-ui-tooltip-trigger aria-label="New session in private-repo"></button></li></aside>
+    <div data-base-ui-focusable data-side="right" tabindex="-1"><span id="create-tip">Create from...</span></div>
+    <div data-base-ui-focusable data-side="right" tabindex="-1"><span id="session-tip">New session</span></div>
+    <div data-base-ui-focusable data-side="right" tabindex="-1"><span id="private-tip">Private repository description</span></div>`);
+  try {
+    const d=dom.window.document;
+    assert.equal(d.querySelector('#create').getAttribute('aria-label'),'从 private-repo 的拉取请求、分支或议题创建项目');
+    assert.equal(d.querySelector('#session').getAttribute('aria-label'),'在 private-repo 中新建会话');
+    assert.equal(d.querySelector('#create-tip').textContent,'从…创建项目');
+    assert.equal(d.querySelector('#session-tip').textContent,'新建会话');
+    assert.equal(d.querySelector('#private-tip').textContent,'Private repository description');
+    assert.equal(d.querySelector('li > span').textContent,'private-repo');
+  } finally { dom.window.close(); }
 });
 test('session information dialog translates chrome and counters while preserving branch, path, project and session data',async()=>{
   const dom=await fixture(`<button id="session-trigger" aria-controls="session-info" aria-label="Project assessment · github-copilot-app-zh/main, session information">Project assessment · github-copilot-app-zh/main</button>
